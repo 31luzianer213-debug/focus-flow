@@ -158,7 +158,6 @@ function routeToCurrentLocation({replaceInvalid=false}={}){
     if(!state.adminUnlocked){
       state.pendingAdminRoute=path;
       showScreen("adm",{updateRoute:false});
-      updateUrl("/adm",{replace:true});
       return;
     }
     showScreen("management",{updateRoute:false});
