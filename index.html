@@ -340,7 +340,24 @@
             <div><span class="kicker">ORGANIZAÇÃO</span><h3>Categorias</h3><p class="section-copy">Categorias são identificadas automaticamente a partir dos produtos cadastrados.</p></div>
           </div>
           <div id="admin-category-grid" class="category-admin-grid"></div>
-          <div class="admin-note"><i data-lucide="info"></i><span>Para criar uma nova categoria, cadastre ou edite um produto e escreva o nome desejado no campo <strong>Categoria</strong>. Assim não dependemos de uma lista fixa.</span></div>
+
+          <div id="admin-category-editor" class="category-editor hidden">
+            <div class="admin-form-heading">
+              <div><span class="kicker">CATEGORIA</span><h4>Editar categoria</h4></div>
+              <button id="admin-category-cancel-x" class="icon-btn" type="button" aria-label="Fechar editor"><i data-lucide="x"></i></button>
+            </div>
+            <form id="admin-category-form">
+              <input id="admin-category-original" type="hidden" />
+              <label><span>Novo nome</span><input id="admin-category-name" required maxlength="60" placeholder="Ex.: Bolsas e mochilas" /></label>
+              <p class="category-editor-help">Todos os produtos desta categoria serão atualizados para o novo nome.</p>
+              <div class="form-actions">
+                <button id="admin-category-save" class="btn btn-primary" type="submit">Salvar categoria</button>
+                <button id="admin-category-cancel" class="btn btn-secondary" type="button">Cancelar</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="admin-note"><i data-lucide="info"></i><span>Para criar uma nova categoria, cadastre ou edite um produto e escreva o nome desejado no campo <strong>Categoria</strong>. Para remover uma categoria, os produtos dela são preservados e movidos para <strong>Outros</strong>.</span></div>
         </div>
 
         <div class="admin-section" data-admin-section="reservations">
