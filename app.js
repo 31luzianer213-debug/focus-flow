@@ -357,4 +357,8 @@ async function init(){
   await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
   iconRefresh();
 }
-window.addEventListener("DOMContentLoaded",init);
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", () => { void init(); }, { once: true });
+} else {
+  void init();
+}
