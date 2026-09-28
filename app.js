@@ -104,14 +104,24 @@ function normalizeProduct(p){
   };
 }
 
-function normalizePath(path=window.location.pathname){
-  const clean=String(path||"/").replace(/\/+$/,"");
+function normalizePath(path="/"){
+  const clean=String(path||"/").split("?")[0].replace(/\/+$/,"");
   return clean||"/";
+}
+function currentRoute(){
+  const hash=String(window.location.hash||"");
+  if(hash.startsWith("#/"))return normalizePath(hash.slice(1));
+  const legacy=normalizePath(window.location.pathname);
+  return legacy==="/" ? "/" : legacy;
+}
+function routeUrl(path){
+  const target=normalizePath(path);
+  return `/#${target}`;
 }
 function updateUrl(path,{replace=false}={}){
   const target=normalizePath(path);
-  if(normalizePath(window.location.pathname)===target)return;
-  window.history[replace?"replaceState":"pushState"]({},"",target);
+  if(currentRoute()===target && String(window.location.hash||"").startsWith("#/"))return;
+  window.history[replace?"replaceState":"pushState"]({},"",routeUrl(target));
 }
 function persistAdminSession(unlocked){
   try{
@@ -133,7 +143,9 @@ function restoreRedirectPath(){
     const redirect=sessionStorage.getItem("brecho:route-redirect");
     if(!redirect)return;
     sessionStorage.removeItem("brecho:route-redirect");
-    if(normalizePath(window.location.pathname)==="/")window.history.replaceState({},"",redirect);
+    const url=new URL(redirect,window.location.origin);
+    const route=normalizePath(url.pathname);
+    if(normalizePath(window.location.pathname)==="/")window.history.replaceState({},"",routeUrl(route));
   }catch{}
 }
 function showScreen(id,{updateRoute=true,replace=false}={}){
@@ -152,7 +164,7 @@ function showScreen(id,{updateRoute=true,replace=false}={}){
   iconRefresh();
 }
 function routeToCurrentLocation({replaceInvalid=false}={}){
-  const path=normalizePath();
+  const path=currentRoute();
   const adminTab=ROUTE_ADMIN_TABS[path];
   if(adminTab){
     if(!state.adminUnlocked){
@@ -165,9 +177,8 @@ function routeToCurrentLocation({replaceInvalid=false}={}){
     return;
   }
 
-  if(path==="/produto"){
-    const params=new URLSearchParams(window.location.search||"");
-    const code=params.get("codigo")||"";
+  if(path.startsWith("/produto/")){
+    const code=decodeURIComponent(path.slice("/produto/".length));
     if(code&&state.products.some(p=>p.code===code)){
       openProduct(code,{updateRoute:false});
       return;
@@ -326,7 +337,7 @@ function openProduct(code,{updateRoute=true,replace=false}={}){
   reserve.disabled=p.status!=="available";
   reserve.innerHTML=p.status==="available"?'Reservar esta peça <i data-lucide="calendar-plus"></i>':`${statusLabel(p.status)}`;
   showScreen("details",{updateRoute:false});
-  if(updateRoute)updateUrl(`/produto?codigo=${encodeURIComponent(p.code)}`,{replace});
+  if(updateRoute)updateUrl(`/produto/${encodeURIComponent(p.code)}`,{replace});
 }
 function startReservation(){
   const p=state.selectedProduct;if(!p||p.status!=="available") return;
@@ -897,6 +908,7 @@ function bind(){
   $("#admin-export-reviews")?.addEventListener("click",exportReviews);
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}});
   window.addEventListener("popstate",()=>routeToCurrentLocation());
+  window.addEventListener("hashchange",()=>routeToCurrentLocation());
 }
 
 async function init(){
@@ -907,6 +919,7 @@ async function init(){
   iconRefresh();
   await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
   routeToCurrentLocation({replaceInvalid:true});
+  if(!String(window.location.hash||"").startsWith("#/"))updateUrl(currentRoute(),{replace:true});
   iconRefresh();
 }
 if (document.readyState === "loading") {
