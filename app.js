@@ -409,14 +409,85 @@ function renderAdminCategories(){
   grid.innerHTML=categories.length?categories.map(key=>{
     const products=state.products.filter(p=>categoryKey(p.category)===key);
     const available=products.filter(p=>p.status==="available").length;
-    return `<button class="category-admin-card" type="button" data-admin-category="${esc(key)}">
-      <span class="category-admin-icon"><i data-lucide="tag"></i></span>
-      <strong>${esc(categoryLabel(key))}</strong>
-      <small>${products.length} produto(s) · ${available} disponível(is)</small>
-      <span class="category-admin-action">Ver produtos <i data-lucide="arrow-right"></i></span>
-    </button>`;
+    const removable=!["other","outros"].includes(key);
+    return `<article class="category-admin-card">
+      <button class="category-admin-main" type="button" data-admin-category="${esc(key)}">
+        <span class="category-admin-icon"><i data-lucide="tag"></i></span>
+        <span class="category-admin-copy"><strong>${esc(categoryLabel(key))}</strong><small>${products.length} produto(s) · ${available} disponível(is)</small></span>
+        <span class="category-admin-action">Ver produtos <i data-lucide="arrow-right"></i></span>
+      </button>
+      <div class="category-admin-buttons">
+        <button class="mini-btn" type="button" data-edit-category="${esc(key)}"><i data-lucide="pencil"></i> Editar</button>
+        ${removable?`<button class="mini-btn danger" type="button" data-remove-category="${esc(key)}"><i data-lucide="trash-2"></i> Remover</button>`:""}
+      </div>
+    </article>`;
   }).join(""):`<div class="state-box">Nenhuma categoria encontrada.</div>`;
   iconRefresh();
+}
+
+function openCategoryEditor(key){
+  if(state.usingFallback){toast("O catálogo está em modo de prévia. Reconecte a API antes de editar categorias.");return}
+  const products=state.products.filter(p=>categoryKey(p.category)===key);
+  if(!products.length)return;
+  $("#admin-category-original").value=key;
+  $("#admin-category-name").value=categoryLabel(key);
+  $("#admin-category-editor").classList.remove("hidden");
+  $("#admin-category-editor").scrollIntoView({behavior:"smooth",block:"center"});
+  $("#admin-category-name")?.focus();
+}
+function closeCategoryEditor(){
+  $("#admin-category-editor")?.classList.add("hidden");
+  $("#admin-category-form")?.reset();
+  if($("#admin-category-original"))$("#admin-category-original").value="";
+}
+async function updateCategoryProducts(originalKey,newName){
+  const targets=state.products.filter(p=>categoryKey(p.category)===originalKey);
+  if(!targets.length)throw new Error("Nenhum produto encontrado nesta categoria.");
+  if(targets.some(p=>!p.id))throw new Error("Existem itens de prévia nesta categoria. Atualize os dados reais antes de continuar.");
+  for(const product of targets){
+    const form=new FormData();
+    form.set("categoria",newName);
+    await api(`/produtos/${product.id}`,{method:"PUT",body:form});
+  }
+  return targets.length;
+}
+async function saveCategory(event){
+  event.preventDefault();
+  const originalKey=$("#admin-category-original").value;
+  const newName=$("#admin-category-name").value.trim();
+  const button=$("#admin-category-save");
+  if(!originalKey||!newName)return;
+  if(categoryKey(newName)===originalKey){closeCategoryEditor();return}
+  button.disabled=true;button.textContent="Salvando…";
+  try{
+    const count=await updateCategoryProducts(originalKey,newName);
+    closeCategoryEditor();
+    await loadProducts();
+    renderAdminAll();
+    toast(`Categoria atualizada em ${count} produto(s).`);
+  }catch(error){
+    await loadProducts();
+    toast(error.message||"Não foi possível atualizar a categoria.");
+  }finally{
+    button.disabled=false;button.textContent="Salvar categoria";
+  }
+}
+async function removeCategory(key){
+  if(state.usingFallback){toast("O catálogo está em modo de prévia. Reconecte a API antes de remover categorias.");return}
+  if(["other","outros"].includes(key)){toast("A categoria Outros é usada como destino padrão e não pode ser removida.");return}
+  const products=state.products.filter(p=>categoryKey(p.category)===key);
+  if(!products.length)return;
+  if(!confirm(`Remover a categoria "${categoryLabel(key)}"? Os ${products.length} produto(s) serão movidos para "Outros". Nenhum produto será excluído.`))return;
+  try{
+    const count=await updateCategoryProducts(key,"Outros");
+    closeCategoryEditor();
+    await loadProducts();
+    renderAdminAll();
+    toast(`Categoria removida. ${count} produto(s) movido(s) para Outros.`);
+  }catch(error){
+    await loadProducts();
+    toast(error.message||"Não foi possível remover a categoria.");
+  }
 }
 
 function openProductForm(product=null){
@@ -611,6 +682,8 @@ function bind(){
     const tab=event.target.closest("[data-admin-tab]");if(tab){setAdminTab(tab.dataset.adminTab);return}
     const jump=event.target.closest("[data-admin-jump]");if(jump){setAdminTab(jump.dataset.adminJump);return}
     const category=event.target.closest("[data-admin-category]");if(category){state.adminProductCategory=category.dataset.adminCategory;setAdminTab("products");renderAdminProducts();return}
+    const editCategory=event.target.closest("[data-edit-category]");if(editCategory){openCategoryEditor(editCategory.dataset.editCategory);return}
+    const removeCategoryButton=event.target.closest("[data-remove-category]");if(removeCategoryButton){removeCategory(removeCategoryButton.dataset.removeCategory);return}
     const clear=event.target.closest("[data-admin-clear]");if(clear){clearAdminFilters(clear.dataset.adminClear);return}
     const edit=event.target.closest("[data-edit-product]");if(edit){editProduct(edit.dataset.editProduct);return}
     const duplicate=event.target.closest("[data-duplicate-product]");if(duplicate){duplicateProduct(duplicate.dataset.duplicateProduct);return}
@@ -633,6 +706,9 @@ function bind(){
   $("#admin-product-cancel")?.addEventListener("click",closeProductForm);
   $("#admin-product-cancel-x")?.addEventListener("click",closeProductForm);
   $("#admin-product-form")?.addEventListener("submit",saveProduct);
+  $("#admin-category-form")?.addEventListener("submit",saveCategory);
+  $("#admin-category-cancel")?.addEventListener("click",closeCategoryEditor);
+  $("#admin-category-cancel-x")?.addEventListener("click",closeCategoryEditor);
   $("#admin-product-search")?.addEventListener("input",e=>{state.adminProductSearch=e.target.value;renderAdminProducts()});
   $("#admin-product-category-filter")?.addEventListener("change",e=>{state.adminProductCategory=e.target.value;renderAdminProducts()});
   $("#admin-product-status-filter")?.addEventListener("change",e=>{state.adminProductStatus=e.target.value;renderAdminProducts()});
@@ -643,7 +719,7 @@ function bind(){
   $("#admin-export-products")?.addEventListener("click",exportProducts);
   $("#admin-export-reservations")?.addEventListener("click",exportReservations);
   $("#admin-export-reviews")?.addEventListener("click",exportReviews);
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked)closeProductForm()}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}});
 }
 
 async function init(){
