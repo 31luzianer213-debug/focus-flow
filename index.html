@@ -338,18 +338,19 @@
         <div class="admin-section" data-admin-section="categories">
           <div class="section-bar">
             <div><span class="kicker">ORGANIZAÇÃO</span><h3>Categorias</h3><p class="section-copy">Categorias são identificadas automaticamente a partir dos produtos cadastrados.</p></div>
+            <button id="admin-add-category" class="btn btn-primary" type="button"><i data-lucide="plus"></i> Adicionar categoria</button>
           </div>
           <div id="admin-category-grid" class="category-admin-grid"></div>
 
           <div id="admin-category-editor" class="category-editor hidden">
             <div class="admin-form-heading">
-              <div><span class="kicker">CATEGORIA</span><h4>Editar categoria</h4></div>
+              <div><span class="kicker">CATEGORIA</span><h4 id="admin-category-editor-title">Editar categoria</h4></div>
               <button id="admin-category-cancel-x" class="icon-btn" type="button" aria-label="Fechar editor"><i data-lucide="x"></i></button>
             </div>
             <form id="admin-category-form">
               <input id="admin-category-original" type="hidden" />
               <label><span>Novo nome</span><input id="admin-category-name" required maxlength="60" placeholder="Ex.: Bolsas e mochilas" /></label>
-              <p class="category-editor-help">Todos os produtos desta categoria serão atualizados para o novo nome.</p>
+              <p id="admin-category-editor-help" class="category-editor-help">Todos os produtos desta categoria serão atualizados para o novo nome.</p>
               <div class="form-actions">
                 <button id="admin-category-save" class="btn btn-primary" type="submit">Salvar categoria</button>
                 <button id="admin-category-cancel" class="btn btn-secondary" type="button">Cancelar</button>
