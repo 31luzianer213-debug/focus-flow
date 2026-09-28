@@ -868,7 +868,7 @@ function bind(){
   $("#menu-toggle")?.addEventListener("click",toggleMenu);
   $("#catalog-search")?.addEventListener("input",e=>{state.search=e.target.value;renderCatalog()});
   $("#reserve-button")?.addEventListener("click",startReservation);
-  $("#reservation-back")?.addEventListener("click",()=>showScreen("details"));
+  $("#reservation-back")?.addEventListener("click",()=>{if(state.selectedProduct)openProduct(state.selectedProduct.code);else showScreen("catalog")});
   $("#reservation-form")?.addEventListener("submit",submitReservation);
   $("#feedback-form")?.addEventListener("submit",submitFeedback);
   $("#adm-form")?.addEventListener("submit",adminLogin);
