@@ -18,7 +18,15 @@ const state = {
   category: "all",
   search: "",
   adminUnlocked: false,
-  usingFallback: false
+  usingFallback: false,
+  apiStatus: {products:false,reservations:false,reviews:false},
+  adminProductSearch: "",
+  adminProductCategory: "all",
+  adminProductStatus: "all",
+  adminProductSort: "recent",
+  adminReservationSearch: "",
+  adminReservationStatus: "all",
+  adminReviewRating: "all"
 };
 
 const $ = (selector, scope=document) => scope.querySelector(selector);
@@ -42,7 +50,11 @@ function categoryKey(value=""){
   return v || "other";
 }
 function categoryLabel(value){
-  return ({adult:"Vestuário adulto",children:"Vestuário infantil",shoes:"Calçados e acessórios"})[categoryKey(value)] || value || "Não informado";
+  const key=categoryKey(value);
+  const known={adult:"Vestuário adulto",children:"Vestuário infantil",shoes:"Calçados e acessórios"};
+  if(known[key]) return known[key];
+  if(!key||key==="other") return "Outros";
+  return key.replace(/(^|\s)\S/g,m=>m.toUpperCase());
 }
 function statusLabel(status){
   return ({available:"Disponível",reserved:"Reservado",exchanged:"Trocado"})[status] || status || "Disponível";
@@ -76,7 +88,7 @@ function showScreen(id){
   closeMenu();
   window.scrollTo({top:0,behavior:"smooth"});
   if(target.id==="catalog") renderCatalog();
-  if(target.id==="management"){renderAdminProducts();renderReservations();renderReviews();}
+  if(target.id==="management") renderAdminAll();
   iconRefresh();
 }
 function closeMenu(){
@@ -106,22 +118,50 @@ async function loadProducts(){
     const data=await api("/produtos");
     state.products=data.map(normalizeProduct);
     state.usingFallback=false;
+    state.apiStatus.products=true;
     if(box) box.classList.add("hidden");
   }catch(error){
     console.warn(error);
     state.products=FALLBACK_PRODUCTS.map(normalizeProduct);
     state.usingFallback=true;
+    state.apiStatus.products=false;
     if(box){box.textContent="A API está demorando para responder. Mostrando uma prévia do catálogo enquanto isso.";box.classList.remove("hidden");}
   }
   applyReservationStatuses();
   renderCatalog();
   renderAdminProducts();
+  renderAdminCategories();
+  renderAdminOverview();
+  renderAdminDataStatus();
 }
 async function loadReservations(){
-  try{state.reservations=await api("/reservas");applyReservationStatuses();renderCatalog();renderReservations()}catch(error){console.warn(error);state.reservations=[]}
+  try{
+    state.reservations=await api("/reservas");
+    state.apiStatus.reservations=true;
+    applyReservationStatuses();
+    renderCatalog();
+    renderReservations();
+  }catch(error){
+    console.warn(error);
+    state.reservations=[];
+    state.apiStatus.reservations=false;
+    renderReservations();
+  }
+  renderAdminOverview();
+  renderAdminDataStatus();
 }
 async function loadReviews(){
-  try{state.reviews=await api("/avaliacoes");renderReviews()}catch(error){console.warn(error);state.reviews=[]}
+  try{
+    state.reviews=await api("/avaliacoes");
+    state.apiStatus.reviews=true;
+  }catch(error){
+    console.warn(error);
+    state.reviews=[];
+    state.apiStatus.reviews=false;
+  }
+  renderReviews();
+  renderAdminOverview();
+  renderAdminDataStatus();
 }
 function applyReservationStatuses(){
   state.reservations.forEach(r=>{
@@ -252,44 +292,162 @@ function adminLogin(event){
   state.adminUnlocked=true;$("#adm-code").value="";setMessage(msg,"");showScreen("management");toast("Área administrativa liberada")
 }
 function adminLogout(){state.adminUnlocked=false;showScreen("adm");toast("Sessão administrativa encerrada")}
+
 function setAdminTab(tab){
   $$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
   $$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
+  if(tab==="overview") renderAdminOverview();
+  if(tab==="products") renderAdminProducts();
+  if(tab==="categories") renderAdminCategories();
+  if(tab==="reservations") renderReservations();
+  if(tab==="reviews") renderReviews();
+  if(tab==="tools") renderAdminDataStatus();
+  iconRefresh();
 }
+
+function renderAdminAll(){
+  renderAdminOverview();
+  renderAdminProducts();
+  renderAdminCategories();
+  renderReservations();
+  renderReviews();
+  renderAdminDataStatus();
+  iconRefresh();
+}
+
+function categoryCounts(){
+  return state.products.reduce((acc,p)=>{
+    const key=categoryKey(p.category);
+    acc[key]=(acc[key]||0)+1;
+    return acc;
+  },{});
+}
+
+function renderAdminOverview(){
+  const stats=$("#admin-overview-stats");
+  if(stats){
+    const pending=state.reservations.filter(r=>["Pendente","Em análise"].includes(r.status)).length;
+    const confirmed=state.reservations.filter(r=>r.status==="Confirmada").length;
+    const avg=state.reviews.length?(state.reviews.reduce((sum,r)=>sum+(Number(r.nota)||0),0)/state.reviews.length).toFixed(1):"—";
+    const items=[
+      ["package",state.products.length,"Produtos"],
+      ["circle-check",state.products.filter(p=>p.status==="available").length,"Disponíveis"],
+      ["clock-3",state.products.filter(p=>p.status==="reserved").length,"Reservados"],
+      ["repeat-2",state.products.filter(p=>p.status==="exchanged").length,"Trocados"],
+      ["clipboard-clock",pending,"Reservas pendentes"],
+      ["badge-check",confirmed,"Confirmadas"],
+      ["star",avg,"Nota média"]
+    ];
+    stats.innerHTML=items.map(([icon,value,label])=>`<article class="stat-card"><i data-lucide="${icon}"></i><div><strong>${esc(value)}</strong><span>${esc(label)}</span></div></article>`).join("");
+  }
+
+  const attention=$("#admin-attention-list");
+  if(attention){
+    const pending=state.reservations.filter(r=>["Pendente","Em análise"].includes(r.status)).slice(0,5);
+    attention.innerHTML=pending.length?pending.map(r=>`<button class="compact-row" type="button" data-admin-jump="reservations"><span><strong>${esc(r.nomeCompleto||"Cliente")}</strong><small>${esc(r.nomeProduto||r.codigoProduto||"Produto")}</small></span><b>${esc(r.status||"Pendente")}</b></button>`).join(""):`<div class="empty-mini"><i data-lucide="circle-check-big"></i><span>Nenhuma reserva pendente.</span></div>`;
+  }
+
+  const categories=$("#admin-overview-categories");
+  if(categories){
+    const counts=categoryCounts();
+    const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    categories.innerHTML=entries.length?entries.map(([key,count])=>`<button class="compact-row" type="button" data-admin-category="${esc(key)}"><span><strong>${esc(categoryLabel(key))}</strong><small>${count} item(ns)</small></span><b>${count}</b></button>`).join(""):`<div class="empty-mini">Sem categorias ainda.</div>`;
+  }
+  iconRefresh();
+}
+
+function renderAdminProductFilters(){
+  const select=$("#admin-product-category-filter");if(!select)return;
+  const current=state.adminProductCategory;
+  const categories=[...new Set(state.products.map(p=>categoryKey(p.category)))].sort((a,b)=>categoryLabel(a).localeCompare(categoryLabel(b),"pt-BR"));
+  select.innerHTML=`<option value="all">Todas as categorias</option>`+categories.map(c=>`<option value="${esc(c)}">${esc(categoryLabel(c))}</option>`).join("");
+  select.value=categories.includes(current)?current:"all";
+  if(select.value!==current) state.adminProductCategory="all";
+}
+
+function filteredAdminProducts(){
+  const q=state.adminProductSearch.trim().toLowerCase();
+  let items=state.products.filter(p=>{
+    const matchesSearch=!q||[p.name,p.code,p.size,p.condition,p.trade,categoryLabel(p.category)].some(v=>String(v||"").toLowerCase().includes(q));
+    const matchesCategory=state.adminProductCategory==="all"||categoryKey(p.category)===state.adminProductCategory;
+    const matchesStatus=state.adminProductStatus==="all"||p.status===state.adminProductStatus;
+    return matchesSearch&&matchesCategory&&matchesStatus;
+  });
+  if(state.adminProductSort==="name") items.sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+  if(state.adminProductSort==="code") items.sort((a,b)=>String(a.code).localeCompare(String(b.code),"pt-BR",{numeric:true}));
+  if(state.adminProductSort==="category") items.sort((a,b)=>categoryLabel(a.category).localeCompare(categoryLabel(b.category),"pt-BR"));
+  if(state.adminProductSort==="status") items.sort((a,b)=>statusLabel(a.status).localeCompare(statusLabel(b.status),"pt-BR"));
+  return items;
+}
+
 function renderAdminProducts(){
   const list=$("#admin-product-list");if(!list) return;
-  list.innerHTML=state.products.length?state.products.map(p=>`<article class="admin-card">
-    <div><h4>${esc(p.name)} · ${esc(p.code)} <span class="status ${esc(p.status)}">${esc(statusLabel(p.status))}</span></h4>
-    <p>${esc(categoryLabel(p.category))} · Tam. ${esc(p.size)} · ${esc(p.condition)}</p>
-    <div class="admin-card-meta"><span>${esc(String(p.trade).replace(/^[^\wÀ-ÿ]+/,""))}</span></div></div>
+  renderAdminProductFilters();
+  const items=filteredAdminProducts();
+  const count=$("#admin-product-count");if(count)count.textContent=`${items.length} de ${state.products.length} produto(s)`;
+  list.innerHTML=items.length?items.map(p=>`<article class="admin-card admin-product-card">
+    <div class="admin-product-main">
+      <div class="admin-thumb">${p.image?`<img src="${esc(p.image)}" alt="" onerror="this.parentElement.classList.add('image-error');this.remove()" />`:`<i data-lucide="image-off"></i>`}</div>
+      <div><h4>${esc(p.name)} <span class="code-chip">#${esc(p.code)}</span> <span class="status ${esc(p.status)}">${esc(statusLabel(p.status))}</span></h4>
+      <p>${esc(categoryLabel(p.category))} · Tam. ${esc(p.size)} · ${esc(p.condition)}</p>
+      <div class="admin-card-meta"><span>${esc(String(p.trade).replace(/^[^\wÀ-ÿ]+/,""))}</span></div></div>
+    </div>
     <div class="admin-actions">
       <button class="mini-btn" type="button" data-edit-product="${esc(p.code)}">Editar</button>
-      <button class="mini-btn primary" type="button" data-cycle-product="${esc(p.code)}">Alterar status</button>
+      <button class="mini-btn" type="button" data-duplicate-product="${esc(p.code)}">Duplicar</button>
+      <button class="mini-btn primary" type="button" data-cycle-product="${esc(p.code)}">Status</button>
       <button class="mini-btn danger" type="button" data-delete-product="${esc(p.code)}">Excluir</button>
     </div>
-  </article>`).join(""):`<div class="state-box">Nenhum produto cadastrado.</div>`;
+  </article>`).join(""):`<div class="state-box">Nenhum produto corresponde aos filtros.</div>`;
+  iconRefresh();
 }
+
+function renderAdminCategories(){
+  const grid=$("#admin-category-grid");if(!grid)return;
+  const counts=categoryCounts();
+  const categories=Object.keys(counts).sort((a,b)=>categoryLabel(a).localeCompare(categoryLabel(b),"pt-BR"));
+  grid.innerHTML=categories.length?categories.map(key=>{
+    const products=state.products.filter(p=>categoryKey(p.category)===key);
+    const available=products.filter(p=>p.status==="available").length;
+    return `<button class="category-admin-card" type="button" data-admin-category="${esc(key)}">
+      <span class="category-admin-icon"><i data-lucide="tag"></i></span>
+      <strong>${esc(categoryLabel(key))}</strong>
+      <small>${products.length} produto(s) · ${available} disponível(is)</small>
+      <span class="category-admin-action">Ver produtos <i data-lucide="arrow-right"></i></span>
+    </button>`;
+  }).join(""):`<div class="state-box">Nenhuma categoria encontrada.</div>`;
+  iconRefresh();
+}
+
 function openProductForm(product=null){
   $("#admin-product-form").reset();
   $("#admin-product-id").value=product?.id||"";
   $("#admin-product-code").value=product?.code||"";
   $("#admin-product-name").value=product?.name||"";
-  $("#admin-product-category").value=product?.category||"";
+  $("#admin-product-category").value=product?categoryLabel(product.category):"";
   $("#admin-product-size").value=product?.size||"";
   $("#admin-product-condition").value=product?.condition||"";
   $("#admin-product-status").value=product?.status||"available";
   $("#admin-product-trade").value=product?.trade||"";
   $("#admin-product-description").value=product?.description||"";
+  const title=$("#admin-product-form-title");if(title)title.textContent=product?"Editar produto":"Novo produto";
   $("#admin-product-form-wrap").classList.remove("hidden");
   $("#admin-product-form-wrap").scrollIntoView({behavior:"smooth",block:"start"});
 }
 function closeProductForm(){ $("#admin-product-form-wrap").classList.add("hidden");$("#admin-product-form").reset() }
+
+function duplicateProduct(code){
+  const p=state.products.find(x=>x.code===code);if(!p)return;
+  openProductForm({...p,id:"",code:"",name:`${p.name} - cópia`});
+  $("#admin-product-code")?.focus();
+}
+
 async function saveProduct(event){
   event.preventDefault();const id=$("#admin-product-id").value,button=$("#admin-product-save"),msg=$("#management-message");
   const form=new FormData();
   form.set("codigo",$("#admin-product-code").value.trim());
   form.set("nome",$("#admin-product-name").value.trim());
-  form.set("categoria",$("#admin-product-category").value);
+  form.set("categoria",$("#admin-product-category").value.trim());
   form.set("tamanho",$("#admin-product-size").value.trim());
   form.set("estado",$("#admin-product-condition").value.trim());
   form.set("status",$("#admin-product-status").value);
@@ -313,53 +471,149 @@ async function cycleProduct(code){
   const next={available:"reserved",reserved:"exchanged",exchanged:"available"}[p.status]||"available";
   try{
     const form=new FormData();form.set("status",next);
-    await api(`/produtos/${p.id}`,{method:"PUT",body:form});await loadProducts();toast("Status atualizado")
+    await api(`/produtos/${p.id}`,{method:"PUT",body:form});await loadProducts();toast(`Status: ${statusLabel(next)}`)
   }catch(error){toast(error.message)}
 }
 function editProduct(code){const p=state.products.find(x=>x.code===code);if(!p?.id)return toast("Este item de prévia não pode ser editado.");openProductForm(p)}
 
 function reservationStatusClass(status){return status==="Vendido"?"exchanged":["Pendente","Em análise","Confirmada"].includes(status)?"reserved":"available"}
+function whatsappUrl(contact=""){
+  let digits=String(contact).replace(/\D/g,"");
+  if((digits.length===10||digits.length===11)&&!digits.startsWith("55"))digits="55"+digits;
+  return digits.length>=10?`https://wa.me/${digits}`:"";
+}
+function filteredReservations(){
+  const q=state.adminReservationSearch.trim().toLowerCase();
+  return state.reservations.filter(r=>{
+    const matchesSearch=!q||[r.nomeCompleto,r.nomeProduto,r.codigoProduto,r.contato,r.itemDoacao].some(v=>String(v||"").toLowerCase().includes(q));
+    const matchesStatus=state.adminReservationStatus==="all"||r.status===state.adminReservationStatus;
+    return matchesSearch&&matchesStatus;
+  });
+}
 function renderReservations(){
   const list=$("#reservation-list");if(!list)return;
-  list.innerHTML=state.reservations.length?state.reservations.map(r=>`<article class="admin-card">
-    <div><h4>${esc(r.nomeCompleto||"Cliente")} · ${esc(r.nomeProduto||r.codigoProduto||"Produto")} <span class="status ${reservationStatusClass(r.status)}">${esc(r.status||"Pendente")}</span></h4>
-    <p>${esc(r.contato||"Sem contato")} · Doação: ${esc(r.itemDoacao||"—")} · Qtde. ${esc(r.quantidade||1)}</p>
-    ${r.observacoesEquipe?`<div class="admin-card-meta"><span>${esc(r.observacoesEquipe)}</span></div>`:""}</div>
-    <div class="admin-actions">
-      <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Em análise">Em análise</button>
-      <button class="mini-btn primary" type="button" data-reservation-status="${esc(r._id)}|Confirmada">Confirmar</button>
-      <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Vendido">Concluir</button>
-      <button class="mini-btn danger" type="button" data-delete-reservation="${esc(r._id)}">Excluir</button>
-    </div>
-  </article>`).join(""):`<div class="state-box">Nenhuma reserva recebida.</div>`;
+  const items=filteredReservations();
+  const count=$("#admin-reservation-count");if(count)count.textContent=`${items.length} de ${state.reservations.length} reserva(s)`;
+  list.innerHTML=items.length?items.map(r=>{
+    const wa=whatsappUrl(r.contato);
+    return `<article class="admin-card">
+      <div><h4>${esc(r.nomeCompleto||"Cliente")} · ${esc(r.nomeProduto||r.codigoProduto||"Produto")} <span class="status ${reservationStatusClass(r.status)}">${esc(r.status||"Pendente")}</span></h4>
+      <p>${esc(r.contato||"Sem contato")} · Doação: ${esc(r.itemDoacao||"—")} · Qtde. ${esc(r.quantidade||1)}</p>
+      ${r.observacoesEquipe?`<div class="admin-card-meta"><span>${esc(r.observacoesEquipe)}</span></div>`:""}</div>
+      <div class="admin-actions">
+        ${wa?`<a class="mini-btn whatsapp" href="${esc(wa)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:""}
+        <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Em análise">Em análise</button>
+        <button class="mini-btn primary" type="button" data-reservation-status="${esc(r._id)}|Confirmada">Confirmar</button>
+        <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Vendido">Concluir</button>
+        <button class="mini-btn danger" type="button" data-delete-reservation="${esc(r._id)}">Excluir</button>
+      </div>
+    </article>`;
+  }).join(""):`<div class="state-box">Nenhuma reserva corresponde aos filtros.</div>`;
 }
 async function updateReservation(id,status){
   const notes=status==="Em análise"?"Reserva recebida e aguardando análise da equipe.":status==="Confirmada"?"Reserva aprovada pela equipe.":status==="Vendido"?"Troca concluída.":"";
   try{
     const updated=await api(`/reservas/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,observacoesEquipe:notes})});
     const i=state.reservations.findIndex(r=>r._id===id);if(i>=0)state.reservations[i]=updated;
-    applyReservationStatuses();renderReservations();renderCatalog();toast("Reserva atualizada")
+    applyReservationStatuses();renderReservations();renderCatalog();renderAdminOverview();toast("Reserva atualizada")
   }catch(error){toast(error.message)}
 }
 async function deleteReservation(id){
   if(!confirm("Excluir esta reserva?")) return;
-  try{await api(`/reservas/${id}`,{method:"DELETE"});state.reservations=state.reservations.filter(r=>r._id!==id);renderReservations();toast("Reserva excluída")}catch(error){toast(error.message)}
+  try{
+    await api(`/reservas/${id}`,{method:"DELETE"});
+    state.reservations=state.reservations.filter(r=>r._id!==id);
+    renderReservations();renderAdminOverview();toast("Reserva excluída")
+  }catch(error){toast(error.message)}
+}
+
+function renderReviewSummary(){
+  const box=$("#admin-review-summary");if(!box)return;
+  if(!state.reviews.length){box.innerHTML=`<div class="state-box">Ainda não há avaliações para resumir.</div>`;return}
+  const avg=state.reviews.reduce((sum,r)=>sum+(Number(r.nota)||0),0)/state.reviews.length;
+  const distribution=[5,4,3,2,1].map(n=>[n,state.reviews.filter(r=>Number(r.nota)===n).length]);
+  box.innerHTML=`<div class="review-score"><strong>${avg.toFixed(1)}</strong><span>★</span><small>${state.reviews.length} avaliação(ões)</small></div>
+    <div class="review-bars">${distribution.map(([n,count])=>`<div><span>${n}★</span><div class="review-bar"><i style="width:${state.reviews.length?(count/state.reviews.length)*100:0}%"></i></div><b>${count}</b></div>`).join("")}</div>`;
 }
 function renderReviews(){
   const list=$("#feedback-list");if(!list)return;
-  list.innerHTML=state.reviews.length?state.reviews.map(r=>{
-    const stars="★".repeat(Math.max(0,Math.min(5,Number(r.nota)||0)))+"☆".repeat(Math.max(0,5-(Number(r.nota)||0)));
-    return `<article class="admin-card"><div><h4>${stars}</h4><p>Facilidade: ${esc(r.facilidade||"—")} · Satisfação: ${esc(r.satisfacao||"—")} · Participaria novamente: ${esc(r.participariaNovamente||"—")}</p>${r.sugestao?`<div class="admin-card-meta"><span>${esc(r.sugestao)}</span></div>`:""}</div></article>`
-  }).join(""):`<div class="state-box">Nenhuma avaliação recebida.</div>`;
+  renderReviewSummary();
+  const min=state.adminReviewRating==="all"?0:Number(state.adminReviewRating);
+  const items=state.reviews.filter(r=>(Number(r.nota)||0)>=min);
+  list.innerHTML=items.length?items.map(r=>{
+    const note=Math.max(0,Math.min(5,Number(r.nota)||0));
+    const stars="★".repeat(note)+"☆".repeat(5-note);
+    return `<article class="admin-card review-card"><div><h4 class="review-stars">${stars}</h4><p>Facilidade: ${esc(r.facilidade||"—")} · Satisfação: ${esc(r.satisfacao||"—")} · Participaria novamente: ${esc(r.participariaNovamente||"—")} · Indicaria: ${esc(r.recomendaria||"—")}</p>${r.sugestao?`<div class="admin-card-meta"><span>${esc(r.sugestao)}</span></div>`:""}</div></article>`;
+  }).join(""):`<div class="state-box">Nenhuma avaliação corresponde ao filtro.</div>`;
+}
+
+function csvCell(value){
+  const text=String(value??"");
+  return `"${text.replace(/"/g,'""')}"`;
+}
+function downloadCsv(filename,headers,rows){
+  const csv=[headers.map(csvCell).join(";"),...rows.map(row=>row.map(csvCell).join(";"))].join("\n");
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+function exportProducts(){
+  downloadCsv("brecho-produtos.csv",["Código","Nome","Categoria","Tamanho","Conservação","Status","Troca"],state.products.map(p=>[p.code,p.name,categoryLabel(p.category),p.size,p.condition,statusLabel(p.status),p.trade]));
+}
+function exportReservations(){
+  downloadCsv("brecho-reservas.csv",["Cliente","Contato","Produto","Código","Doação","Quantidade","Status","Observação"],state.reservations.map(r=>[r.nomeCompleto,r.contato,r.nomeProduto,r.codigoProduto,r.itemDoacao,r.quantidade,r.status,r.observacoesEquipe]));
+}
+function exportReviews(){
+  downloadCsv("brecho-avaliacoes.csv",["Nota","Facilidade","Satisfação","Participaria novamente","Indicaria","Sugestão"],state.reviews.map(r=>[r.nota,r.facilidade,r.satisfacao,r.participariaNovamente,r.recomendaria,r.sugestao]));
+}
+
+function renderAdminDataStatus(){
+  const box=$("#admin-data-status");if(!box)return;
+  const ok=Object.values(state.apiStatus).filter(Boolean).length;
+  const total=Object.keys(state.apiStatus).length;
+  box.classList.toggle("warning",ok<total);
+  box.innerHTML=`<i data-lucide="${ok===total?"database":"triangle-alert"}"></i><span>${ok===total?"Produtos, reservas e avaliações foram carregados da API.":`Conexão parcial: ${ok}/${total} conjuntos de dados responderam. ${state.usingFallback?"O catálogo está usando itens de prévia.":""}`}</span>`;
+  iconRefresh();
+}
+async function refreshAdminData(){
+  const buttons=[$("#admin-refresh-data"),$("#admin-tool-refresh")].filter(Boolean);
+  buttons.forEach(b=>b.disabled=true);
+  setMessage($("#management-message"),"Atualizando dados…");
+  await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
+  renderAdminAll();
+  setMessage($("#management-message"),"Dados atualizados.","success");
+  buttons.forEach(b=>b.disabled=false);
+}
+
+function clearAdminFilters(type){
+  if(type==="products"){
+    state.adminProductSearch="";state.adminProductCategory="all";state.adminProductStatus="all";state.adminProductSort="recent";
+    if($("#admin-product-search"))$("#admin-product-search").value="";
+    if($("#admin-product-category-filter"))$("#admin-product-category-filter").value="all";
+    if($("#admin-product-status-filter"))$("#admin-product-status-filter").value="all";
+    if($("#admin-product-sort"))$("#admin-product-sort").value="recent";
+    renderAdminProducts();
+  }
+  if(type==="reservations"){
+    state.adminReservationSearch="";state.adminReservationStatus="all";
+    if($("#admin-reservation-search"))$("#admin-reservation-search").value="";
+    if($("#admin-reservation-status-filter"))$("#admin-reservation-status-filter").value="all";
+    renderReservations();
+  }
 }
 
 function bind(){
   document.addEventListener("click",event=>{
     const screenLink=event.target.closest("[data-screen-link]");if(screenLink){showScreen(screenLink.dataset.screenLink);return}
     const open=event.target.closest("[data-open-product]");if(open){openProduct(open.dataset.openProduct);return}
-    const filter=event.target.closest("[data-category]");if(filter){state.category=filter.dataset.category;$$("[data-category]").forEach(b=>b.classList.toggle("active",b===filter));renderCatalog();return}
+    const filter=event.target.closest("[data-category]");if(filter){state.category=filter.dataset.category;$("[data-category]").forEach(b=>b.classList.toggle("active",b===filter));renderCatalog();return}
     const tab=event.target.closest("[data-admin-tab]");if(tab){setAdminTab(tab.dataset.adminTab);return}
+    const jump=event.target.closest("[data-admin-jump]");if(jump){setAdminTab(jump.dataset.adminJump);return}
+    const category=event.target.closest("[data-admin-category]");if(category){state.adminProductCategory=category.dataset.adminCategory;setAdminTab("products");renderAdminProducts();return}
+    const clear=event.target.closest("[data-admin-clear]");if(clear){clearAdminFilters(clear.dataset.adminClear);return}
     const edit=event.target.closest("[data-edit-product]");if(edit){editProduct(edit.dataset.editProduct);return}
+    const duplicate=event.target.closest("[data-duplicate-product]");if(duplicate){duplicateProduct(duplicate.dataset.duplicateProduct);return}
     const cycle=event.target.closest("[data-cycle-product]");if(cycle){cycleProduct(cycle.dataset.cycleProduct);return}
     const del=event.target.closest("[data-delete-product]");if(del){deleteProduct(del.dataset.deleteProduct);return}
     const rs=event.target.closest("[data-reservation-status]");if(rs){const [id,status]=rs.dataset.reservationStatus.split("|");updateReservation(id,status);return}
@@ -373,10 +627,23 @@ function bind(){
   $("#feedback-form")?.addEventListener("submit",submitFeedback);
   $("#adm-form")?.addEventListener("submit",adminLogin);
   $("#admin-logout")?.addEventListener("click",adminLogout);
+  $("#admin-refresh-data")?.addEventListener("click",refreshAdminData);
+  $("#admin-tool-refresh")?.addEventListener("click",refreshAdminData);
   $("#admin-add-product")?.addEventListener("click",()=>openProductForm());
   $("#admin-product-cancel")?.addEventListener("click",closeProductForm);
+  $("#admin-product-cancel-x")?.addEventListener("click",closeProductForm);
   $("#admin-product-form")?.addEventListener("submit",saveProduct);
-  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
+  $("#admin-product-search")?.addEventListener("input",e=>{state.adminProductSearch=e.target.value;renderAdminProducts()});
+  $("#admin-product-category-filter")?.addEventListener("change",e=>{state.adminProductCategory=e.target.value;renderAdminProducts()});
+  $("#admin-product-status-filter")?.addEventListener("change",e=>{state.adminProductStatus=e.target.value;renderAdminProducts()});
+  $("#admin-product-sort")?.addEventListener("change",e=>{state.adminProductSort=e.target.value;renderAdminProducts()});
+  $("#admin-reservation-search")?.addEventListener("input",e=>{state.adminReservationSearch=e.target.value;renderReservations()});
+  $("#admin-reservation-status-filter")?.addEventListener("change",e=>{state.adminReservationStatus=e.target.value;renderReservations()});
+  $("#admin-review-rating-filter")?.addEventListener("change",e=>{state.adminReviewRating=e.target.value;renderReviews()});
+  $("#admin-export-products")?.addEventListener("click",exportProducts);
+  $("#admin-export-reservations")?.addEventListener("click",exportReservations);
+  $("#admin-export-reviews")?.addEventListener("click",exportReviews);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked)closeProductForm()}});
 }
 
 async function init(){
