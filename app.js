@@ -165,8 +165,9 @@ function routeToCurrentLocation({replaceInvalid=false}={}){
     return;
   }
 
-  if(path.startsWith("/produto/")){
-    const code=decodeURIComponent(path.slice("/produto/".length));
+  if(path==="/produto"){
+    const params=new URLSearchParams(window.location.search||"");
+    const code=params.get("codigo")||"";
     if(code&&state.products.some(p=>p.code===code)){
       openProduct(code,{updateRoute:false});
       return;
@@ -325,7 +326,7 @@ function openProduct(code,{updateRoute=true,replace=false}={}){
   reserve.disabled=p.status!=="available";
   reserve.innerHTML=p.status==="available"?'Reservar esta peça <i data-lucide="calendar-plus"></i>':`${statusLabel(p.status)}`;
   showScreen("details",{updateRoute:false});
-  if(updateRoute)updateUrl(`/produto/${encodeURIComponent(p.code)}`,{replace});
+  if(updateRoute)updateUrl(`/produto?codigo=${encodeURIComponent(p.code)}`,{replace});
 }
 function startReservation(){
   const p=state.selectedProduct;if(!p||p.status!=="available") return;
