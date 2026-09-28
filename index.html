@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#082a46" />
+  <meta name="description" content="Brechó Solidário Online: escolha peças, reserve sua troca e faça parte de uma corrente de consumo consciente." />
+  <title>Brechó Solidário Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700;9..144,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Navegação principal">
+      <button class="brand" type="button" data-screen-link="home" aria-label="Ir para o início">
+        <span class="brand-mark"><i data-lucide="recycle"></i></span>
+        <span><strong>BRECHÓ</strong><small>SOLIDÁRIO</small></span>
+      </button>
+      <div class="nav-links" id="desktop-nav">
+        <button type="button" data-screen-link="home">Início</button>
+        <button type="button" data-screen-link="catalog">Catálogo</button>
+        <button type="button" data-screen-link="how">Como funciona</button>
+        <button type="button" data-screen-link="rules">Regras</button>
+        <button type="button" data-screen-link="impact">Impacto</button>
+        <button type="button" data-screen-link="feedback">Pós-venda</button>
+        <button type="button" data-screen-link="adm">ADM</button>
+      </div>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false">
+        <i data-lucide="menu"></i>
+      </button>
+      <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+        <button type="button" data-screen-link="home">Início</button>
+        <button type="button" data-screen-link="catalog">Catálogo</button>
+        <button type="button" data-screen-link="how">Como funciona</button>
+        <button type="button" data-screen-link="rules">Regras</button>
+        <button type="button" data-screen-link="impact">Impacto</button>
+        <button type="button" data-screen-link="feedback">Pós-venda</button>
+        <button type="button" data-screen-link="adm">ADM</button>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="screen active" id="home">
+      <div class="hero shell">
+        <div class="hero-copy">
+          <span class="eyebrow"><i data-lucide="leaf"></i> MODA QUE CUIDA DO FUTURO</span>
+          <h1 class="display">Uma peça pode vestir uma nova história.</h1>
+          <p class="hero-lead">Escolha itens em bom estado, faça uma troca solidária e ajude a manter roupas e acessórios circulando por mais tempo.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" data-screen-link="catalog">Explorar catálogo <i data-lucide="arrow-right"></i></button>
+            <button class="btn btn-secondary" type="button" data-screen-link="how">Como funciona</button>
+          </div>
+          <div class="hero-points" aria-label="Vantagens">
+            <span><i data-lucide="shield-check"></i> Reserva simples</span>
+            <span><i data-lucide="repeat-2"></i> Troca consciente</span>
+            <span><i data-lucide="heart-handshake"></i> Impacto local</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <img src="https://images.pexels.com/photos/5709661/pexels-photo-5709661.jpeg?auto=compress&cs=tinysrgb&w=1200" alt="Roupas organizadas em cabides em um brechó" />
+          <div class="hero-note">
+            <span class="note-icon"><i data-lucide="sparkles"></i></span>
+            <div><strong>Escolha. Troque. Faça o bem.</strong><small>Consumo consciente em movimento.</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shell home-strip">
+        <article><i data-lucide="search-check"></i><div><strong>Escolha com clareza</strong><span>Veja tamanho, estado e valor da troca.</span></div></article>
+        <article><i data-lucide="calendar-check-2"></i><div><strong>Reserve online</strong><span>Garanta a peça antes de ir até a equipe.</span></div></article>
+        <article><i data-lucide="package-heart"></i><div><strong>Troque por solidariedade</strong><span>Leve o item solicitado e conclua a troca.</span></div></article>
+      </div>
+    </section>
+
+    <section class="screen" id="catalog">
+      <div class="shell page">
+        <div class="page-heading split-heading">
+          <div><span class="kicker">CATÁLOGO</span><h2>Encontre a próxima peça da sua história.</h2><p>Filtre por categoria ou pesquise pelo nome e código.</p></div>
+          <div class="catalog-summary"><strong id="product-count">0</strong><span>itens no catálogo</span></div>
+        </div>
+        <div class="catalog-toolbar">
+          <label class="search-box"><i data-lucide="search"></i><input id="catalog-search" type="search" placeholder="Buscar peça ou código…" autocomplete="off" /></label>
+          <div class="filter-group" id="category-filters" aria-label="Filtrar por categoria">
+            <button class="filter active" type="button" data-category="all">Todos</button>
+            <button class="filter" type="button" data-category="adult">Adulto</button>
+            <button class="filter" type="button" data-category="children">Infantil</button>
+            <button class="filter" type="button" data-category="shoes">Calçados & acessórios</button>
+          </div>
+        </div>
+        <div id="catalog-state" class="state-box hidden"></div>
+        <div id="product-grid" class="product-grid"></div>
+      </div>
+    </section>
+
+    <section class="screen" id="details">
+      <div class="shell page">
+        <button class="back-link" type="button" data-screen-link="catalog"><i data-lucide="arrow-left"></i> Voltar ao catálogo</button>
+        <div class="product-detail">
+          <div class="detail-media"><img id="detail-image" alt="" /><span id="detail-status" class="status"></span></div>
+          <div class="detail-copy">
+            <span class="kicker" id="detail-code"></span>
+            <h2 id="detail-name"></h2>
+            <p id="detail-description" class="detail-description"></p>
+            <dl class="detail-specs">
+              <div><dt>Categoria</dt><dd id="detail-category"></dd></div>
+              <div><dt>Tamanho</dt><dd id="detail-size"></dd></div>
+              <div><dt>Conservação</dt><dd id="detail-condition"></dd></div>
+            </dl>
+            <div class="trade-box"><span>Troca solidária</span><strong id="detail-trade"></strong><small>Leve o item indicado no dia combinado.</small></div>
+            <button id="reserve-button" class="btn btn-primary btn-block" type="button">Reservar esta peça <i data-lucide="calendar-plus"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="how">
+      <div class="shell page">
+        <div class="page-heading"><span class="kicker">COMO FUNCIONA</span><h2>Da escolha à troca em quatro passos simples.</h2><p>O processo foi pensado para ser direto, transparente e fácil em qualquer dispositivo.</p></div>
+        <div class="steps-grid">
+          <article><span>01</span><i data-lucide="search"></i><h3>Escolha a peça</h3><p>Explore o catálogo e confira tamanho, conservação e condição da troca.</p></article>
+          <article><span>02</span><i data-lucide="clipboard-check"></i><h3>Faça a reserva</h3><p>Informe seus dados e o item de doação que você pretende levar.</p></article>
+          <article><span>03</span><i data-lucide="badge-check"></i><h3>Aguarde a confirmação</h3><p>A equipe acompanha seu pedido pela área administrativa.</p></article>
+          <article><span>04</span><i data-lucide="hand-heart"></i><h3>Conclua a troca</h3><p>Entregue a doação combinada e leve a peça para uma nova história.</p></article>
+        </div>
+        <div class="inline-cta"><div><span class="kicker">PRONTO PARA COMEÇAR?</span><h3>Veja o que está disponível agora.</h3></div><button class="btn btn-primary" type="button" data-screen-link="catalog">Abrir catálogo</button></div>
+      </div>
+    </section>
+
+    <section class="screen" id="rules">
+      <div class="shell page">
+        <div class="page-heading"><span class="kicker">REGRAS</span><h2>Trocas claras deixam a experiência melhor para todos.</h2><p>Antes de reservar, confira os combinados do Brechó Solidário.</p></div>
+        <div class="rules-layout">
+          <div class="rules-list">
+            <article><span><i data-lucide="badge-info"></i></span><div><h3>Leia os detalhes da peça</h3><p>Tamanho, estado de conservação e valor da troca ficam visíveis antes da reserva.</p></div></article>
+            <article><span><i data-lucide="package-check"></i></span><div><h3>Leve o item combinado</h3><p>A troca só é concluída após a entrega da doação informada no produto.</p></div></article>
+            <article><span><i data-lucide="clock-3"></i></span><div><h3>Acompanhe sua reserva</h3><p>Pedidos podem ficar pendentes, em análise, confirmados ou concluídos pela equipe.</p></div></article>
+            <article><span><i data-lucide="heart-handshake"></i></span><div><h3>Respeite a proposta solidária</h3><p>O objetivo é reaproveitar peças e fortalecer uma corrente de colaboração.</p></div></article>
+          </div>
+          <aside class="rules-aside"><span class="kicker">DICA RÁPIDA</span><h3>Reservou e mudou de ideia?</h3><p>Avise a equipe o quanto antes para que a peça possa voltar ao catálogo e outra pessoa tenha a oportunidade de reservá-la.</p><button class="btn btn-secondary btn-block" type="button" data-screen-link="catalog">Ver peças disponíveis</button></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="impact">
+      <div class="shell page">
+        <div class="impact-hero">
+          <div><span class="kicker light">IMPACTO REAL</span><h2>Reusar é prolongar valor — para a peça e para a comunidade.</h2><p>O Brechó Solidário transforma itens parados em novas oportunidades e conecta cada troca a uma doação útil.</p></div>
+          <i data-lucide="heart-handshake"></i>
+        </div>
+        <div class="impact-grid">
+          <article><i data-lucide="repeat-2"></i><h3>Mais tempo em circulação</h3><p>Roupas e acessórios continuam úteis antes de virarem descarte.</p></article>
+          <article><i data-lucide="package-heart"></i><h3>Doações com propósito</h3><p>Cada produto mostra exatamente o que será entregue na troca solidária.</p></article>
+          <article><i data-lucide="users"></i><h3>Participação acessível</h3><p>Reserva e acompanhamento online reduzem atrito para quem quer participar.</p></article>
+        </div>
+        <div class="inline-cta"><div><span class="kicker">FAÇA PARTE</span><h3>Coloque essa corrente em movimento.</h3></div><button class="btn btn-primary" type="button" data-screen-link="catalog">Escolher uma peça</button></div>
+      </div>
+    </section>
+
+    <section class="screen" id="reservation">
+      <div class="shell page narrow">
+        <button class="back-link" type="button" id="reservation-back"><i data-lucide="arrow-left"></i> Voltar ao produto</button>
+        <form id="reservation-form" class="form-card">
+          <span class="kicker">RESERVA</span>
+          <h2>Solicitar troca solidária</h2>
+          <p id="reservation-summary" class="form-intro"></p>
+          <div class="form-grid">
+            <label><span>Nome completo</span><input id="full-name" required autocomplete="name" /></label>
+            <label><span>WhatsApp / contato</span><input id="contact" required autocomplete="tel" inputmode="tel" /></label>
+          </div>
+          <fieldset><legend>Tipo de doação</legend><div class="choice-grid">
+            <label><input type="radio" name="donation-type" value="Alimento" required /><span><i data-lucide="wheat"></i> Alimento</span></label>
+            <label><input type="radio" name="donation-type" value="Higiene" /><span><i data-lucide="bath"></i> Higiene</span></label>
+            <label><input type="radio" name="donation-type" value="Outro" /><span><i data-lucide="package"></i> Outro</span></label>
+          </div></fieldset>
+          <div class="form-grid">
+            <label><span>Item da doação</span><input id="donation-item" required placeholder="Ex.: arroz, sabonete…" /></label>
+            <label><span>Quantidade</span><input id="donation-quantity" type="number" min="1" value="1" required /></label>
+          </div>
+          <p id="reservation-message" class="form-message" aria-live="polite"></p>
+          <button id="reservation-submit" class="btn btn-primary btn-block" type="submit">Enviar solicitação <i data-lucide="send"></i></button>
+        </form>
+      </div>
+    </section>
+
+    <section class="screen" id="confirmation">
+      <div class="shell page narrow">
+        <div class="success-card">
+          <span class="success-icon"><i data-lucide="circle-check-big"></i></span>
+          <span class="kicker">SOLICITAÇÃO ENVIADA</span>
+          <h2>Reserva recebida.</h2>
+          <p id="confirmation-text">A equipe vai analisar sua solicitação.</p>
+          <div class="success-actions"><button class="btn btn-primary" type="button" data-screen-link="catalog">Continuar no catálogo</button><button class="btn btn-secondary" type="button" data-screen-link="home">Voltar ao início</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="feedback">
+      <div class="shell page narrow">
+        <form id="feedback-form" class="form-card">
+          <span class="kicker">PÓS-VENDA</span>
+          <h2>Como foi sua experiência?</h2>
+          <p class="form-intro">Sua opinião ajuda a melhorar o atendimento e o processo de troca.</p>
+          <fieldset><legend>Nota do atendimento</legend><div class="rating" id="rating-group">
+            <label><input type="radio" name="rating" value="1" required /><span>1 ★</span></label>
+            <label><input type="radio" name="rating" value="2" /><span>2 ★</span></label>
+            <label><input type="radio" name="rating" value="3" /><span>3 ★</span></label>
+            <label><input type="radio" name="rating" value="4" /><span>4 ★</span></label>
+            <label><input type="radio" name="rating" value="5" /><span>5 ★</span></label>
+          </div></fieldset>
+          <label><span>Foi fácil utilizar o Brechó Solidário?</span><select id="ease" required><option value="">Selecione</option><option>Muito fácil</option><option>Fácil</option><option>Regular</option><option>Difícil</option></select></label>
+          <label><span>Você ficou satisfeito com o produto?</span><select id="satisfaction" required><option value="">Selecione</option><option>Sim</option><option>Parcialmente</option><option>Não</option></select></label>
+          <div class="form-grid">
+            <label><span>Participaria novamente?</span><select id="again" required><option value="">Selecione</option><option>Sim</option><option>Talvez</option><option>Não</option></select></label>
+            <label><span>Indicaria para outras pessoas?</span><select id="recommend" required><option value="">Selecione</option><option>Sim</option><option>Não</option></select></label>
+          </div>
+          <label><span>Sugestão</span><textarea id="suggestion" rows="4" placeholder="Conte o que podemos melhorar…"></textarea></label>
+          <p id="feedback-message" class="form-message" aria-live="polite"></p>
+          <button id="feedback-submit" class="btn btn-primary btn-block" type="submit">Enviar avaliação</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="screen" id="adm">
+      <div class="shell page narrow">
+        <form id="adm-form" class="login-card">
+          <span class="login-icon"><i data-lucide="shield-check"></i></span>
+          <span class="kicker">ÁREA RESTRITA</span>
+          <h2>Acesso da equipe</h2>
+          <p>Entre com o código administrativo para gerenciar catálogo, reservas e avaliações.</p>
+          <label><span>Código de acesso</span><input id="adm-code" type="password" autocomplete="off" required /></label>
+          <p id="adm-message" class="form-message" aria-live="polite"></p>
+          <button class="btn btn-primary btn-block" type="submit">Entrar na ADM</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="screen" id="management">
+      <div class="shell page admin-page">
+        <div class="admin-top">
+          <div><span class="kicker">PAINEL ADMINISTRATIVO</span><h2>Gestão do Brechó</h2><p>Atualize o catálogo e acompanhe as solicitações da comunidade.</p></div>
+          <button id="admin-logout" class="btn btn-secondary" type="button"><i data-lucide="log-out"></i> Sair</button>
+        </div>
+        <div class="admin-tabs" id="admin-tabs">
+          <button class="active" type="button" data-admin-tab="products"><i data-lucide="shirt"></i> Produtos</button>
+          <button type="button" data-admin-tab="reservations"><i data-lucide="clipboard-list"></i> Reservas</button>
+          <button type="button" data-admin-tab="reviews"><i data-lucide="message-square-heart"></i> Pós-venda</button>
+        </div>
+
+        <div class="admin-section active" data-admin-section="products">
+          <div class="section-bar"><div><span class="kicker">CATÁLOGO</span><h3>Produtos</h3></div><button id="admin-add-product" class="btn btn-primary" type="button"><i data-lucide="plus"></i> Adicionar produto</button></div>
+          <div id="admin-product-form-wrap" class="admin-form-wrap hidden">
+            <form id="admin-product-form">
+              <input id="admin-product-id" type="hidden" />
+              <div class="form-grid">
+                <label><span>Código</span><input id="admin-product-code" required /></label>
+                <label><span>Nome</span><input id="admin-product-name" required /></label>
+                <label><span>Categoria</span><select id="admin-product-category" required><option value="">Selecione</option><option value="adult">Vestuário Adulto</option><option value="children">Vestuário Infantil</option><option value="shoes">Calçados e Acessórios</option></select></label>
+                <label><span>Tamanho</span><input id="admin-product-size" required /></label>
+                <label><span>Conservação</span><input id="admin-product-condition" required /></label>
+                <label><span>Status</span><select id="admin-product-status" required><option value="available">Disponível</option><option value="reserved">Reservado</option><option value="exchanged">Trocado</option></select></label>
+              </div>
+              <label><span>Valor da troca solidária</span><input id="admin-product-trade" required placeholder="Ex.: 2 kg de arroz" /></label>
+              <label><span>Descrição</span><textarea id="admin-product-description" rows="4" required></textarea></label>
+              <label><span>Imagem (opcional)</span><input id="admin-product-image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label>
+              <div class="form-actions"><button class="btn btn-primary" id="admin-product-save" type="submit">Salvar produto</button><button class="btn btn-secondary" id="admin-product-cancel" type="button">Cancelar</button></div>
+            </form>
+          </div>
+          <div id="admin-product-list" class="admin-list"></div>
+        </div>
+
+        <div class="admin-section" data-admin-section="reservations">
+          <div class="section-bar"><div><span class="kicker">PEDIDOS</span><h3>Reservas</h3></div></div>
+          <div id="reservation-list" class="admin-list"></div>
+        </div>
+
+        <div class="admin-section" data-admin-section="reviews">
+          <div class="section-bar"><div><span class="kicker">RETORNO</span><h3>Avaliações de pós-venda</h3></div></div>
+          <div id="feedback-list" class="admin-list"></div>
+        </div>
+        <p id="management-message" class="form-message" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <div><strong>Brechó Solidário Online</strong><span>Consumo consciente em movimento.</span></div>
+      <button type="button" data-screen-link="catalog">Ver catálogo <i data-lucide="arrow-up-right"></i></button>
+    </div>
+  </footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
