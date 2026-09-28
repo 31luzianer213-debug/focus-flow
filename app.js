@@ -204,19 +204,46 @@ async function submitReservation(event){
 }
 
 async function submitFeedback(event){
-  event.preventDefault();const button=$("#feedback-submit"),msg=$("#feedback-message");
+  event.preventDefault();
+  const form=event.currentTarget;
+  const button=$("#feedback-submit"),msg=$("#feedback-message");
+  const rating=$('input[name="rating"]:checked');
+
+  if(!rating){
+    setMessage(msg,"Selecione uma nota antes de enviar.","error");
+    return;
+  }
+
   const payload={
-    nota:Number($('input[name="rating"]:checked')?.value||0),
-    facilidade:$("#ease").value,satisfacao:$("#satisfaction").value,
-    participariaNovamente:$("#again").value,recomendaria:$("#recommend").value,
+    nota:Number(rating.value),
+    facilidade:$("#ease").value,
+    satisfacao:$("#satisfaction").value,
+    participariaNovamente:$("#again").value,
+    recomendaria:$("#recommend").value,
     sugestao:$("#suggestion").value.trim()
   };
-  button.disabled=true;button.textContent="Enviando…";
+
+  button.disabled=true;
+  button.textContent="Enviando…";
+  setMessage(msg,"Enviando sua avaliação…");
+
   try{
-    const created=await api("/avaliacoes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    state.reviews.unshift(created);event.currentTarget.reset();setMessage(msg,"Obrigado! Sua avaliação foi enviada.","success");renderReviews()
-  }catch(error){setMessage(msg,error.message||"Não foi possível enviar sua avaliação.","error")}
-  finally{button.disabled=false;button.textContent="Enviar avaliação"}
+    const created=await api("/avaliacoes",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    state.reviews.unshift(created);
+    form.reset();
+    setMessage(msg,"Obrigado! Sua avaliação foi enviada.","success");
+    renderReviews();
+  }catch(error){
+    console.error("Erro ao enviar avaliação:",error);
+    setMessage(msg,error.message||"Não foi possível enviar sua avaliação. Tente novamente.","error");
+  }finally{
+    button.disabled=false;
+    button.textContent="Enviar avaliação";
+  }
 }
 
 function adminLogin(event){
