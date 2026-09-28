@@ -425,6 +425,30 @@ function renderAdminCategories(){
   iconRefresh();
 }
 
+function populateProductCategorySelect(selectedValue="",extraValue=""){
+  const select=$("#admin-product-category");if(!select)return;
+  const byKey=new Map();
+  state.products.forEach(p=>{
+    const key=categoryKey(p.category);
+    if(key)byKey.set(key,categoryLabel(key));
+  });
+  if(extraValue){
+    const extraKey=categoryKey(extraValue);
+    if(extraKey)byKey.set(extraKey,extraValue.trim());
+  }
+  if(selectedValue){
+    const selectedKey=categoryKey(selectedValue);
+    if(selectedKey&&!byKey.has(selectedKey))byKey.set(selectedKey,categoryLabel(selectedValue));
+  }
+  const options=[...byKey.entries()].sort((a,b)=>a[1].localeCompare(b[1],"pt-BR"));
+  select.innerHTML=`<option value="">Selecione uma categoria</option>`+options.map(([key,label])=>`<option value="${esc(label)}" data-category-key="${esc(key)}">${esc(label)}</option>`).join("");
+  if(selectedValue){
+    const selectedKey=categoryKey(selectedValue);
+    const match=options.find(([key])=>key===selectedKey);
+    if(match)select.value=match[1];
+  }
+}
+
 function openCategoryEditor(key=null){
   if(state.usingFallback){toast("O catálogo está em modo de prévia. Reconecte a API antes de gerenciar categorias.");return}
   const creating=!key;
@@ -472,7 +496,7 @@ async function saveCategory(event){
   if(!originalKey){
     closeCategoryEditor();
     setAdminTab("products");
-    openProductForm();
+    openProductForm(null,newName);
     $("#admin-product-category").value=newName;
     const title=$("#admin-product-form-title");
     if(title)title.textContent=`Novo produto em ${newName}`;
@@ -514,12 +538,12 @@ async function removeCategory(key){
   }
 }
 
-function openProductForm(product=null){
+function openProductForm(product=null,extraCategory=""){
   $("#admin-product-form").reset();
   $("#admin-product-id").value=product?.id||"";
   $("#admin-product-code").value=product?.code||"";
   $("#admin-product-name").value=product?.name||"";
-  $("#admin-product-category").value=product?categoryLabel(product.category):"";
+  populateProductCategorySelect(product?.category||"",extraCategory);
   $("#admin-product-size").value=product?.size||"";
   $("#admin-product-condition").value=product?.condition||"";
   $("#admin-product-status").value=product?.status||"available";
