@@ -425,12 +425,23 @@ function renderAdminCategories(){
   iconRefresh();
 }
 
-function openCategoryEditor(key){
-  if(state.usingFallback){toast("O catálogo está em modo de prévia. Reconecte a API antes de editar categorias.");return}
-  const products=state.products.filter(p=>categoryKey(p.category)===key);
-  if(!products.length)return;
-  $("#admin-category-original").value=key;
-  $("#admin-category-name").value=categoryLabel(key);
+function openCategoryEditor(key=null){
+  if(state.usingFallback){toast("O catálogo está em modo de prévia. Reconecte a API antes de gerenciar categorias.");return}
+  const creating=!key;
+  if(!creating){
+    const products=state.products.filter(p=>categoryKey(p.category)===key);
+    if(!products.length)return;
+  }
+  $("#admin-category-original").value=key||"";
+  $("#admin-category-name").value=creating?"":categoryLabel(key);
+  const title=$("#admin-category-editor-title");
+  const help=$("#admin-category-editor-help");
+  const save=$("#admin-category-save");
+  if(title)title.textContent=creating?"Adicionar categoria":"Editar categoria";
+  if(help)help.textContent=creating
+    ?"Digite o nome da categoria. Em seguida, cadastre o primeiro produto para que ela seja salva de verdade na API."
+    :"Todos os produtos desta categoria serão atualizados para o novo nome.";
+  if(save)save.textContent=creating?"Continuar":"Salvar categoria";
   $("#admin-category-editor").classList.remove("hidden");
   $("#admin-category-editor").scrollIntoView({behavior:"smooth",block:"center"});
   $("#admin-category-name")?.focus();
@@ -456,7 +467,20 @@ async function saveCategory(event){
   const originalKey=$("#admin-category-original").value;
   const newName=$("#admin-category-name").value.trim();
   const button=$("#admin-category-save");
-  if(!originalKey||!newName)return;
+  if(!newName)return;
+
+  if(!originalKey){
+    closeCategoryEditor();
+    setAdminTab("products");
+    openProductForm();
+    $("#admin-product-category").value=newName;
+    const title=$("#admin-product-form-title");
+    if(title)title.textContent=`Novo produto em ${newName}`;
+    setMessage($("#management-message"),`Cadastre o primeiro produto para concluir a criação da categoria "${newName}".`,"success");
+    $("#admin-product-code")?.focus();
+    return;
+  }
+
   if(categoryKey(newName)===originalKey){closeCategoryEditor();return}
   button.disabled=true;button.textContent="Salvando…";
   try{
@@ -703,6 +727,7 @@ function bind(){
   $("#admin-refresh-data")?.addEventListener("click",refreshAdminData);
   $("#admin-tool-refresh")?.addEventListener("click",refreshAdminData);
   $("#admin-add-product")?.addEventListener("click",()=>openProductForm());
+  $("#admin-add-category")?.addEventListener("click",()=>openCategoryEditor());
   $("#admin-product-cancel")?.addEventListener("click",closeProductForm);
   $("#admin-product-cancel-x")?.addEventListener("click",closeProductForm);
   $("#admin-product-form")?.addEventListener("submit",saveProduct);
