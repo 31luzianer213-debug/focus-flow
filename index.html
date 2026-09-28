@@ -242,24 +242,86 @@
     <section class="screen" id="management">
       <div class="shell page admin-page">
         <div class="admin-top">
-          <div><span class="kicker">PAINEL ADMINISTRATIVO</span><h2>Gestão do Brechó</h2><p>Atualize o catálogo e acompanhe as solicitações da comunidade.</p></div>
-          <button id="admin-logout" class="btn btn-secondary" type="button"><i data-lucide="log-out"></i> Sair</button>
-        </div>
-        <div class="admin-tabs" id="admin-tabs">
-          <button class="active" type="button" data-admin-tab="products"><i data-lucide="shirt"></i> Produtos</button>
-          <button type="button" data-admin-tab="reservations"><i data-lucide="clipboard-list"></i> Reservas</button>
-          <button type="button" data-admin-tab="reviews"><i data-lucide="message-square-heart"></i> Pós-venda</button>
+          <div>
+            <span class="kicker">PAINEL ADMINISTRATIVO</span>
+            <h2>Gestão do Brechó</h2>
+            <p>Controle catálogo, categorias, reservas e retorno da comunidade em um só lugar.</p>
+          </div>
+          <div class="admin-top-actions">
+            <button id="admin-refresh-data" class="btn btn-secondary" type="button"><i data-lucide="refresh-cw"></i> Atualizar dados</button>
+            <button id="admin-logout" class="btn btn-secondary" type="button"><i data-lucide="log-out"></i> Sair</button>
+          </div>
         </div>
 
-        <div class="admin-section active" data-admin-section="products">
-          <div class="section-bar"><div><span class="kicker">CATÁLOGO</span><h3>Produtos</h3></div><button id="admin-add-product" class="btn btn-primary" type="button"><i data-lucide="plus"></i> Adicionar produto</button></div>
+        <div class="admin-tabs" id="admin-tabs">
+          <button class="active" type="button" data-admin-tab="overview"><i data-lucide="layout-dashboard"></i> Visão geral</button>
+          <button type="button" data-admin-tab="products"><i data-lucide="shirt"></i> Produtos</button>
+          <button type="button" data-admin-tab="categories"><i data-lucide="tags"></i> Categorias</button>
+          <button type="button" data-admin-tab="reservations"><i data-lucide="clipboard-list"></i> Reservas</button>
+          <button type="button" data-admin-tab="reviews"><i data-lucide="message-square-heart"></i> Avaliações</button>
+          <button type="button" data-admin-tab="tools"><i data-lucide="wrench"></i> Ferramentas</button>
+        </div>
+
+        <div class="admin-section active" data-admin-section="overview">
+          <div class="section-bar">
+            <div><span class="kicker">RESUMO</span><h3>Visão geral</h3><p class="section-copy">O que precisa de atenção e como está o brechó agora.</p></div>
+          </div>
+          <div id="admin-overview-stats" class="admin-stats"></div>
+          <div class="admin-dashboard-grid">
+            <div class="admin-panel">
+              <div class="panel-heading"><div><span class="kicker">ATENÇÃO</span><h4>Reservas pendentes</h4></div><button class="text-btn" type="button" data-admin-jump="reservations">Ver todas</button></div>
+              <div id="admin-attention-list" class="compact-list"></div>
+            </div>
+            <div class="admin-panel">
+              <div class="panel-heading"><div><span class="kicker">CATÁLOGO</span><h4>Distribuição por categoria</h4></div><button class="text-btn" type="button" data-admin-jump="categories">Gerenciar</button></div>
+              <div id="admin-overview-categories" class="compact-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-section" data-admin-section="products">
+          <div class="section-bar">
+            <div><span class="kicker">CATÁLOGO</span><h3>Produtos</h3><p class="section-copy">Encontre, filtre e atualize as peças cadastradas.</p></div>
+            <button id="admin-add-product" class="btn btn-primary" type="button"><i data-lucide="plus"></i> Adicionar produto</button>
+          </div>
+
+          <div class="admin-toolbar">
+            <label class="admin-search"><i data-lucide="search"></i><input id="admin-product-search" type="search" placeholder="Buscar por nome, código, tamanho…" /></label>
+            <select id="admin-product-category-filter" aria-label="Filtrar por categoria"><option value="all">Todas as categorias</option></select>
+            <select id="admin-product-status-filter" aria-label="Filtrar por status">
+              <option value="all">Todos os status</option>
+              <option value="available">Disponíveis</option>
+              <option value="reserved">Reservados</option>
+              <option value="exchanged">Trocados</option>
+            </select>
+            <select id="admin-product-sort" aria-label="Ordenar produtos">
+              <option value="recent">Ordem atual</option>
+              <option value="name">Nome A–Z</option>
+              <option value="code">Código</option>
+              <option value="category">Categoria</option>
+              <option value="status">Status</option>
+            </select>
+          </div>
+          <div class="admin-results-row"><span id="admin-product-count">0 produtos</span><button class="text-btn" type="button" data-admin-clear="products">Limpar filtros</button></div>
+
           <div id="admin-product-form-wrap" class="admin-form-wrap hidden">
+            <div class="admin-form-heading"><div><span class="kicker">PRODUTO</span><h4 id="admin-product-form-title">Novo produto</h4></div><button id="admin-product-cancel-x" class="icon-btn" type="button" aria-label="Fechar formulário"><i data-lucide="x"></i></button></div>
             <form id="admin-product-form">
               <input id="admin-product-id" type="hidden" />
               <div class="form-grid">
                 <label><span>Código</span><input id="admin-product-code" required /></label>
                 <label><span>Nome</span><input id="admin-product-name" required /></label>
-                <label><span>Categoria</span><select id="admin-product-category" required><option value="">Selecione</option><option value="adult">Vestuário Adulto</option><option value="children">Vestuário Infantil</option><option value="shoes">Calçados e Acessórios</option></select></label>
+                <label><span>Categoria</span><input id="admin-product-category" list="admin-category-options" required placeholder="Ex.: Vestuário adulto" /><datalist id="admin-category-options">
+                  <option value="Vestuário adulto"></option>
+                  <option value="Vestuário infantil"></option>
+                  <option value="Calçados"></option>
+                  <option value="Acessórios"></option>
+                  <option value="Bolsas"></option>
+                  <option value="Brinquedos"></option>
+                  <option value="Livros"></option>
+                  <option value="Esporte"></option>
+                  <option value="Casa"></option>
+                </datalist></label>
                 <label><span>Tamanho</span><input id="admin-product-size" required /></label>
                 <label><span>Conservação</span><input id="admin-product-condition" required /></label>
                 <label><span>Status</span><select id="admin-product-status" required><option value="available">Disponível</option><option value="reserved">Reservado</option><option value="exchanged">Trocado</option></select></label>
@@ -273,15 +335,57 @@
           <div id="admin-product-list" class="admin-list"></div>
         </div>
 
+        <div class="admin-section" data-admin-section="categories">
+          <div class="section-bar">
+            <div><span class="kicker">ORGANIZAÇÃO</span><h3>Categorias</h3><p class="section-copy">Categorias são identificadas automaticamente a partir dos produtos cadastrados.</p></div>
+          </div>
+          <div id="admin-category-grid" class="category-admin-grid"></div>
+          <div class="admin-note"><i data-lucide="info"></i><span>Para criar uma nova categoria, cadastre ou edite um produto e escreva o nome desejado no campo <strong>Categoria</strong>. Assim não dependemos de uma lista fixa.</span></div>
+        </div>
+
         <div class="admin-section" data-admin-section="reservations">
-          <div class="section-bar"><div><span class="kicker">PEDIDOS</span><h3>Reservas</h3></div></div>
+          <div class="section-bar"><div><span class="kicker">PEDIDOS</span><h3>Reservas</h3><p class="section-copy">Acompanhe cada solicitação e entre em contato com o cliente.</p></div></div>
+          <div class="admin-toolbar admin-toolbar-reservations">
+            <label class="admin-search"><i data-lucide="search"></i><input id="admin-reservation-search" type="search" placeholder="Buscar cliente, produto, telefone…" /></label>
+            <select id="admin-reservation-status-filter" aria-label="Filtrar reservas por status">
+              <option value="all">Todos os status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Em análise">Em análise</option>
+              <option value="Confirmada">Confirmada</option>
+              <option value="Vendido">Concluída</option>
+            </select>
+          </div>
+          <div class="admin-results-row"><span id="admin-reservation-count">0 reservas</span><button class="text-btn" type="button" data-admin-clear="reservations">Limpar filtros</button></div>
           <div id="reservation-list" class="admin-list"></div>
         </div>
 
         <div class="admin-section" data-admin-section="reviews">
-          <div class="section-bar"><div><span class="kicker">RETORNO</span><h3>Avaliações de pós-venda</h3></div></div>
+          <div class="section-bar"><div><span class="kicker">RETORNO</span><h3>Avaliações</h3><p class="section-copy">Entenda a satisfação de quem já participou.</p></div></div>
+          <div id="admin-review-summary" class="review-summary"></div>
+          <div class="admin-toolbar admin-toolbar-reviews">
+            <select id="admin-review-rating-filter" aria-label="Filtrar avaliações por nota">
+              <option value="all">Todas as notas</option>
+              <option value="5">5 estrelas</option>
+              <option value="4">4 estrelas ou mais</option>
+              <option value="3">3 estrelas ou mais</option>
+              <option value="2">2 estrelas ou mais</option>
+              <option value="1">1 estrela ou mais</option>
+            </select>
+          </div>
           <div id="feedback-list" class="admin-list"></div>
         </div>
+
+        <div class="admin-section" data-admin-section="tools">
+          <div class="section-bar"><div><span class="kicker">FERRAMENTAS</span><h3>Dados e operação</h3><p class="section-copy">Atualize informações e gere cópias dos dados exibidos no painel.</p></div></div>
+          <div class="admin-tools-grid">
+            <button class="tool-card" id="admin-tool-refresh" type="button"><i data-lucide="refresh-cw"></i><span><strong>Atualizar dados</strong><small>Recarrega produtos, reservas e avaliações da API.</small></span></button>
+            <button class="tool-card" id="admin-export-products" type="button"><i data-lucide="download"></i><span><strong>Exportar produtos</strong><small>Baixa o catálogo atual em CSV.</small></span></button>
+            <button class="tool-card" id="admin-export-reservations" type="button"><i data-lucide="download"></i><span><strong>Exportar reservas</strong><small>Baixa as solicitações atuais em CSV.</small></span></button>
+            <button class="tool-card" id="admin-export-reviews" type="button"><i data-lucide="download"></i><span><strong>Exportar avaliações</strong><small>Baixa o retorno recebido em CSV.</small></span></button>
+          </div>
+          <div id="admin-data-status" class="admin-note"><i data-lucide="database"></i><span>Os dados exibidos vêm da API atual do brechó.</span></div>
+        </div>
+
         <p id="management-message" class="form-message" aria-live="polite"></p>
       </div>
     </section>
