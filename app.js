@@ -67,10 +67,11 @@ function setMessage(el,message,type=""){
 }
 function categoryKey(value=""){
   const v=String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  if(!v||["selecione uma categoria","selecionar categoria"].includes(v)) return "other";
   if(["adult","adulto","vestuario adulto"].includes(v)) return "adult";
   if(["children","child","infantil","vestuario infantil"].includes(v)) return "children";
   if(["shoes","shoe","calcados","calcado","acessorios","acessorio","calcados e acessorios","accessories"].includes(v)) return "shoes";
-  return v || "other";
+  return v;
 }
 function categoryLabel(value){
   const key=categoryKey(value);
@@ -443,6 +444,7 @@ function renderAdminAll(){
 function categoryCounts(){
   return state.products.reduce((acc,p)=>{
     const key=categoryKey(p.category);
+    if(!key)return acc;
     acc[key]=(acc[key]||0)+1;
     return acc;
   },{});
@@ -566,7 +568,7 @@ function populateProductCategorySelect(selectedValue="",extraValue=""){
     if(selectedKey&&!byKey.has(selectedKey))byKey.set(selectedKey,categoryLabel(selectedValue));
   }
   const options=[...byKey.entries()].sort((a,b)=>a[1].localeCompare(b[1],"pt-BR"));
-  select.innerHTML=`<option value="">Selecione uma categoria</option>`+options.map(([key,label])=>`<option value="${esc(label)}" data-category-key="${esc(key)}">${esc(label)}</option>`).join("");
+  select.innerHTML=`<option value="" disabled selected hidden>Selecione uma categoria</option>`+options.filter(([key])=>key!=="other"||byKey.get(key)==="Outros").map(([key,label])=>`<option value="${esc(label)}" data-category-key="${esc(key)}">${esc(label)}</option>`).join("");
   if(selectedValue){
     const selectedKey=categoryKey(selectedValue);
     const match=options.find(([key])=>key===selectedKey);
