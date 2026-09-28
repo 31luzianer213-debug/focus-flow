@@ -26,8 +26,31 @@ const state = {
   adminProductSort: "recent",
   adminReservationSearch: "",
   adminReservationStatus: "all",
-  adminReviewRating: "all"
+  adminReviewRating: "all",
+  pendingAdminRoute: ""
 };
+
+const SCREEN_ROUTES = {
+  home: "/",
+  catalog: "/catalogo",
+  how: "/como-funciona",
+  rules: "/regras",
+  impact: "/impacto",
+  feedback: "/avaliacao",
+  adm: "/adm",
+  reservation: "/reserva",
+  confirmation: "/confirmacao"
+};
+const ROUTE_SCREENS = Object.fromEntries(Object.entries(SCREEN_ROUTES).map(([screen,path])=>[path,screen]));
+const ADMIN_ROUTES = {
+  overview: "/admin",
+  products: "/admin/produtos",
+  categories: "/admin/categorias",
+  reservations: "/admin/reservas",
+  reviews: "/admin/avaliacoes",
+  tools: "/admin/ferramentas"
+};
+const ROUTE_ADMIN_TABS = Object.fromEntries(Object.entries(ADMIN_ROUTES).map(([tab,path])=>[path,tab]));
 
 const $ = (selector, scope=document) => scope.querySelector(selector);
 const $$ = (selector, scope=document) => [...scope.querySelectorAll(selector)];
@@ -80,16 +103,101 @@ function normalizeProduct(p){
   };
 }
 
-function showScreen(id){
+function normalizePath(path=window.location.pathname){
+  const clean=String(path||"/").replace(/\/+$/,"");
+  return clean||"/";
+}
+function updateUrl(path,{replace=false}={}){
+  const target=normalizePath(path);
+  if(normalizePath(window.location.pathname)===target)return;
+  window.history[replace?"replaceState":"pushState"]({},"",target);
+}
+function persistAdminSession(unlocked){
+  try{
+    if(unlocked) sessionStorage.setItem("brecho:admin-session","1");
+    else sessionStorage.removeItem("brecho:admin-session");
+  }catch{}
+}
+function restoreAdminSession(){
+  try{return sessionStorage.getItem("brecho:admin-session")==="1"}catch{return false}
+}
+function persistSelectedProduct(code=""){
+  try{
+    if(code)sessionStorage.setItem("brecho:selected-product",code);
+    else sessionStorage.removeItem("brecho:selected-product");
+  }catch{}
+}
+function restoreRedirectPath(){
+  try{
+    const redirect=sessionStorage.getItem("brecho:route-redirect");
+    if(!redirect)return;
+    sessionStorage.removeItem("brecho:route-redirect");
+    if(normalizePath(window.location.pathname)==="/")window.history.replaceState({},"",redirect);
+  }catch{}
+}
+function showScreen(id,{updateRoute=true,replace=false}={}){
   if(id==="management" && !state.adminUnlocked) id="adm";
   const target=document.getElementById(id) || document.getElementById("home");
-  $$(".screen").forEach(s=>s.classList.toggle("active",s===target));
-  $$("[data-screen-link]").forEach(b=>b.classList.toggle("active",b.dataset.screenLink===target.id));
+  $(".screen").forEach(s=>s.classList.toggle("active",s===target));
+  $("[data-screen-link]").forEach(b=>b.classList.toggle("active",b.dataset.screenLink===target.id));
   closeMenu();
   window.scrollTo({top:0,behavior:"smooth"});
   if(target.id==="catalog") renderCatalog();
   if(target.id==="management") renderAdminAll();
+  if(updateRoute){
+    const route=target.id==="management"?ADMIN_ROUTES.overview:SCREEN_ROUTES[target.id];
+    if(route)updateUrl(route,{replace});
+  }
   iconRefresh();
+}
+function routeToCurrentLocation({replaceInvalid=false}={}){
+  const path=normalizePath();
+  const adminTab=ROUTE_ADMIN_TABS[path];
+  if(adminTab){
+    if(!state.adminUnlocked){
+      state.pendingAdminRoute=path;
+      showScreen("adm",{updateRoute:false});
+      updateUrl("/adm",{replace:true});
+      return;
+    }
+    showScreen("management",{updateRoute:false});
+    setAdminTab(adminTab,{updateRoute:false});
+    return;
+  }
+
+  if(path.startsWith("/produto/")){
+    const code=decodeURIComponent(path.slice("/produto/".length));
+    if(code&&state.products.some(p=>p.code===code)){
+      openProduct(code,{updateRoute:false});
+      return;
+    }
+    showScreen("catalog",{updateRoute:false});
+    updateUrl("/catalogo",{replace:true});
+    return;
+  }
+
+  if(path==="/reserva"){
+    const savedCode=state.selectedProduct?.code||(()=>{try{return sessionStorage.getItem("brecho:selected-product")||""}catch{return ""}})();
+    const product=state.products.find(p=>p.code===savedCode);
+    if(product&&product.status==="available"){
+      state.selectedProduct=product;
+      $("#reservation-summary").textContent=`Você está solicitando a reserva de ${product.name} — código ${product.code}. Troca: ${String(product.trade).replace(/^[^\wÀ-ÿ]+/,"")}.`;
+      showScreen("reservation",{updateRoute:false});
+      return;
+    }
+    showScreen("catalog",{updateRoute:false});
+    updateUrl("/catalogo",{replace:true});
+    return;
+  }
+
+  const screen=ROUTE_SCREENS[path];
+  if(screen){
+    showScreen(screen,{updateRoute:false});
+    return;
+  }
+
+  showScreen("home",{updateRoute:false});
+  if(replaceInvalid)updateUrl("/",{replace:true});
 }
 function closeMenu(){
   $("#mobile-menu")?.classList.remove("open");
@@ -200,9 +308,10 @@ function renderCatalog(){
   if(grid) grid.innerHTML=list.length?list.map(productCard).join(""):`<div class="state-box">Nenhuma peça encontrada com esses filtros.</div>`;
   iconRefresh();
 }
-function openProduct(code){
+function openProduct(code,{updateRoute=true,replace=false}={}){
   const p=state.products.find(x=>x.code===code); if(!p) return;
   state.selectedProduct=p;
+  persistSelectedProduct(p.code);
   $("#detail-image").src=p.image; $("#detail-image").alt=p.name;
   $("#detail-code").textContent=`CÓDIGO ${p.code}`;
   $("#detail-name").textContent=p.name;
@@ -215,7 +324,8 @@ function openProduct(code){
   const reserve=$("#reserve-button");
   reserve.disabled=p.status!=="available";
   reserve.innerHTML=p.status==="available"?'Reservar esta peça <i data-lucide="calendar-plus"></i>':`${statusLabel(p.status)}`;
-  showScreen("details");
+  showScreen("details",{updateRoute:false});
+  if(updateRoute)updateUrl(`/produto/${encodeURIComponent(p.code)}`,{replace});
 }
 function startReservation(){
   const p=state.selectedProduct;if(!p||p.status!=="available") return;
@@ -289,11 +399,25 @@ async function submitFeedback(event){
 function adminLogin(event){
   event.preventDefault();const msg=$("#adm-message");
   if($("#adm-code").value.trim()!==ADM_CODE){setMessage(msg,"Código de acesso inválido.","error");return}
-  state.adminUnlocked=true;$("#adm-code").value="";setMessage(msg,"");showScreen("management");toast("Área administrativa liberada")
+  state.adminUnlocked=true;
+  persistAdminSession(true);
+  $("#adm-code").value="";setMessage(msg,"");
+  const pending=state.pendingAdminRoute;
+  state.pendingAdminRoute="";
+  showScreen("management",{updateRoute:false});
+  if(pending&&ROUTE_ADMIN_TABS[pending])setAdminTab(ROUTE_ADMIN_TABS[pending]);
+  else setAdminTab("overview");
+  toast("Área administrativa liberada")
 }
-function adminLogout(){state.adminUnlocked=false;showScreen("adm");toast("Sessão administrativa encerrada")}
+function adminLogout(){
+  state.adminUnlocked=false;
+  state.pendingAdminRoute="";
+  persistAdminSession(false);
+  showScreen("adm");
+  toast("Sessão administrativa encerrada")
+}
 
-function setAdminTab(tab){
+function setAdminTab(tab,{updateRoute=true,replace=false}={}){
   $$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
   $$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
   if(tab==="overview") renderAdminOverview();
@@ -302,6 +426,7 @@ function setAdminTab(tab){
   if(tab==="reservations") renderReservations();
   if(tab==="reviews") renderReviews();
   if(tab==="tools") renderAdminDataStatus();
+  if(updateRoute&&state.adminUnlocked&&ADMIN_ROUTES[tab])updateUrl(ADMIN_ROUTES[tab],{replace});
   iconRefresh();
 }
 
@@ -769,11 +894,17 @@ function bind(){
   $("#admin-export-reservations")?.addEventListener("click",exportReservations);
   $("#admin-export-reviews")?.addEventListener("click",exportReviews);
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}});
+  window.addEventListener("popstate",()=>routeToCurrentLocation());
 }
 
 async function init(){
-  bind();showScreen("home");iconRefresh();
+  restoreRedirectPath();
+  state.adminUnlocked=restoreAdminSession();
+  bind();
+  showScreen("home",{updateRoute:false});
+  iconRefresh();
   await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
+  routeToCurrentLocation({replaceInvalid:true});
   iconRefresh();
 }
 if (document.readyState === "loading") {
