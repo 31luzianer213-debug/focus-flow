@@ -139,8 +139,8 @@ function restoreRedirectPath(){
 function showScreen(id,{updateRoute=true,replace=false}={}){
   if(id==="management" && !state.adminUnlocked) id="adm";
   const target=document.getElementById(id) || document.getElementById("home");
-  $(".screen").forEach(s=>s.classList.toggle("active",s===target));
-  $("[data-screen-link]").forEach(b=>b.classList.toggle("active",b.dataset.screenLink===target.id));
+  $$(".screen").forEach(s=>s.classList.toggle("active",s===target));
+  $$("[data-screen-link]").forEach(b=>b.classList.toggle("active",b.dataset.screenLink===target.id));
   closeMenu();
   window.scrollTo({top:0,behavior:"smooth"});
   if(target.id==="catalog") renderCatalog();
@@ -418,8 +418,8 @@ function adminLogout(){
 }
 
 function setAdminTab(tab,{updateRoute=true,replace=false}={}){
-  $$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
-  $$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
+  $$$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
+  $$$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
   if(tab==="overview") renderAdminOverview();
   if(tab==="products") renderAdminProducts();
   if(tab==="categories") renderAdminCategories();
@@ -852,7 +852,7 @@ function bind(){
   document.addEventListener("click",event=>{
     const screenLink=event.target.closest("[data-screen-link]");if(screenLink){showScreen(screenLink.dataset.screenLink);return}
     const open=event.target.closest("[data-open-product]");if(open){openProduct(open.dataset.openProduct);return}
-    const filter=event.target.closest("[data-category]");if(filter){state.category=filter.dataset.category;$("[data-category]").forEach(b=>b.classList.toggle("active",b===filter));renderCatalog();return}
+    const filter=event.target.closest("[data-category]");if(filter){state.category=filter.dataset.category;$$("[data-category]").forEach(b=>b.classList.toggle("active",b===filter));renderCatalog();return}
     const tab=event.target.closest("[data-admin-tab]");if(tab){setAdminTab(tab.dataset.adminTab);return}
     const jump=event.target.closest("[data-admin-jump]");if(jump){setAdminTab(jump.dataset.adminJump);return}
     const category=event.target.closest("[data-admin-category]");if(category){state.adminProductCategory=category.dataset.adminCategory;setAdminTab("products");renderAdminProducts();return}
