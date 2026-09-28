@@ -142,3 +142,11 @@
     color: var(--color-foreground);
   }
 }
+
+
+/* Remove Lovable branding widget completely */
+#lovable-badge {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
