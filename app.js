@@ -418,8 +418,8 @@ function adminLogout(){
 }
 
 function setAdminTab(tab,{updateRoute=true,replace=false}={}){
-  $$$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
-  $$$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
+  $$("[data-admin-tab]").forEach(b=>b.classList.toggle("active",b.dataset.adminTab===tab));
+  $$("[data-admin-section]").forEach(s=>s.classList.toggle("active",s.dataset.adminSection===tab));
   if(tab==="overview") renderAdminOverview();
   if(tab==="products") renderAdminProducts();
   if(tab==="categories") renderAdminCategories();
