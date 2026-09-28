@@ -1,24 +1,30 @@
-# Focus Flow
+# Brechó Solidário Online
 
-F
+Interface responsiva para catálogo, reserva de trocas solidárias, pós-venda e gestão administrativa.
 
-This project was built with [Lovable](https://lovable.dev).
+## Rodar localmente
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/12faf864-0458-4e0d-97d5-24b6b1114160).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+```bash
+npm install
 npm run dev
 ```
+
+## Build
+
+```bash
+npm run build
+npm run preview
+```
+
+O front-end consome a API já utilizada pelo projeto em `https://brecho-api-zebo.onrender.com/api`.
+
+### Principais telas
+- Início
+- Catálogo com busca e filtros
+- Detalhes do produto e reserva
+- Como funciona e regras
+- Impacto
+- Pós-venda
+- Painel ADM para produtos, reservas e avaliações
+
+A interface foi revisada para celular, tablet, notebook e telas maiores, com navegação mobile, formulários fluidos e cartões administrativos adaptáveis.
