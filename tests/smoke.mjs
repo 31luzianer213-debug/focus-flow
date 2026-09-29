@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-const html = fs.readFileSync("index.html", "utf8");
+const html = fs.readFileSync("src/static-shell.html", "utf8");
 const js = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
@@ -25,7 +25,7 @@ check("no duplicate HTML ids", ids.length === idSet.size);
 const jsIdRefs = [...new Set([...js.matchAll(/\$\(["']#([^"']+)["']\)/g)].map((m) => m[1]))];
 check("all JS id refs exist", jsIdRefs.every((id) => idSet.has(id)));
 
-check("hash router enabled", js.includes('hash.startsWith("#/")') && js.includes('addEventListener("hashchange"'));
+check("clean history router enabled", js.includes("window.location.pathname") && js.includes('addEventListener("popstate"') && !js.includes('hash.startsWith("#/")'));
 check("admin routes exist", ["/admin","/admin/produtos","/admin/categorias","/admin/reservas","/admin/avaliacoes","/admin/ferramentas"].every((r) => js.includes(r)));
 check("demo fallback products removed", !js.includes("FALLBACK_PRODUCTS"));
 check("API timeout exists", js.includes("AbortController") && js.includes("A conexão demorou demais"));
