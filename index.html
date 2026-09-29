@@ -169,8 +169,8 @@
           <h2>Solicitar troca solidária</h2>
           <p id="reservation-summary" class="form-intro"></p>
           <div class="form-grid">
-            <label><span>Nome completo</span><input id="full-name" required autocomplete="name" /></label>
-            <label><span>WhatsApp / contato</span><input id="contact" required autocomplete="tel" inputmode="tel" /></label>
+            <label><span>Nome completo</span><input id="full-name" required maxlength="100" autocomplete="name" /></label>
+            <label><span>WhatsApp / contato</span><input id="contact" type="tel" required maxlength="24" autocomplete="tel" inputmode="tel" /></label>
           </div>
           <fieldset><legend>Tipo de doação</legend><div class="choice-grid">
             <label><input type="radio" name="donation-type" value="Alimento" required /><span><i data-lucide="wheat"></i> Alimento</span></label>
@@ -178,8 +178,8 @@
             <label><input type="radio" name="donation-type" value="Outro" /><span><i data-lucide="package"></i> Outro</span></label>
           </div></fieldset>
           <div class="form-grid">
-            <label><span>Item da doação</span><input id="donation-item" required placeholder="Ex.: arroz, sabonete…" /></label>
-            <label><span>Quantidade</span><input id="donation-quantity" type="number" min="1" value="1" required /></label>
+            <label><span>Item da doação</span><input id="donation-item" required maxlength="100" placeholder="Ex.: arroz, sabonete…" /></label>
+            <label><span>Quantidade</span><input id="donation-quantity" type="number" min="1" max="999" value="1" required /></label>
           </div>
           <p id="reservation-message" class="form-message" aria-live="polite"></p>
           <button id="reservation-submit" class="btn btn-primary btn-block" type="submit">Enviar solicitação <i data-lucide="send"></i></button>
@@ -218,7 +218,7 @@
             <label><span>Participaria novamente?</span><select id="again" required><option value="">Selecione</option><option>Sim</option><option>Talvez</option><option>Não</option></select></label>
             <label><span>Indicaria para outras pessoas?</span><select id="recommend" required><option value="">Selecione</option><option>Sim</option><option>Não</option></select></label>
           </div>
-          <label><span>Sugestão</span><textarea id="suggestion" rows="4" placeholder="Conte o que podemos melhorar…"></textarea></label>
+          <label><span>Sugestão</span><textarea id="suggestion" rows="4" maxlength="1000" placeholder="Conte o que podemos melhorar…"></textarea></label>
           <p id="feedback-message" class="form-message" aria-live="polite"></p>
           <button id="feedback-submit" class="btn btn-primary btn-block" type="submit">Enviar avaliação</button>
         </form>
@@ -232,7 +232,7 @@
           <span class="kicker">ÁREA RESTRITA</span>
           <h2>Acesso da equipe</h2>
           <p>Entre com o código administrativo para gerenciar catálogo, reservas e avaliações.</p>
-          <label><span>Código de acesso</span><input id="adm-code" type="password" autocomplete="off" required /></label>
+          <label><span>Código de acesso</span><input id="adm-code" type="password" maxlength="32" autocomplete="off" required /></label>
           <p id="adm-message" class="form-message" aria-live="polite"></p>
           <button class="btn btn-primary btn-block" type="submit">Entrar na ADM</button>
         </form>
@@ -309,15 +309,15 @@
             <form id="admin-product-form">
               <input id="admin-product-id" type="hidden" />
               <div class="form-grid">
-                <label><span>Código</span><input id="admin-product-code" required /></label>
-                <label><span>Nome</span><input id="admin-product-name" required /></label>
+                <label><span>Código</span><input id="admin-product-code" required maxlength="40" /></label>
+                <label><span>Nome</span><input id="admin-product-name" required maxlength="120" /></label>
                 <label><span>Categoria</span><select id="admin-product-category" required><option value="" disabled selected hidden>Selecione uma categoria</option></select></label>
-                <label><span>Tamanho</span><input id="admin-product-size" required /></label>
-                <label><span>Conservação</span><input id="admin-product-condition" required /></label>
+                <label><span>Tamanho</span><input id="admin-product-size" required maxlength="30" /></label>
+                <label><span>Conservação</span><input id="admin-product-condition" required maxlength="60" /></label>
                 <label><span>Status</span><select id="admin-product-status" required><option value="available">Disponível</option><option value="reserved">Reservado</option><option value="exchanged">Trocado</option></select></label>
               </div>
-              <label><span>Valor da troca solidária</span><input id="admin-product-trade" required placeholder="Ex.: 2 kg de arroz" /></label>
-              <label><span>Descrição</span><textarea id="admin-product-description" rows="4" required></textarea></label>
+              <label><span>Valor da troca solidária</span><input id="admin-product-trade" required maxlength="120" placeholder="Ex.: 2 kg de arroz" /></label>
+              <label><span>Descrição</span><textarea id="admin-product-description" rows="4" maxlength="1200" required></textarea></label>
               <label><span>Imagem (opcional)</span><input id="admin-product-image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /></label>
               <div class="form-actions"><button class="btn btn-primary" id="admin-product-save" type="submit">Salvar produto</button><button class="btn btn-secondary" id="admin-product-cancel" type="button">Cancelar</button></div>
             </form>
@@ -348,7 +348,7 @@
             </form>
           </div>
 
-          <div class="admin-note"><i data-lucide="info"></i><span>Para criar uma nova categoria, cadastre ou edite um produto e escreva o nome desejado no campo <strong>Categoria</strong>. Para remover uma categoria, os produtos dela são preservados e movidos para <strong>Outros</strong>.</span></div>
+          <div class="admin-note"><i data-lucide="info"></i><span>Use <strong>Adicionar categoria</strong> para criar uma nova. Ao remover uma categoria, os produtos dela são preservados e movidos para <strong>Outros</strong>.</span></div>
         </div>
 
         <div class="admin-section" data-admin-section="reservations">
