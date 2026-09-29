@@ -253,6 +253,7 @@ async function loadProducts(){
     if(box){box.textContent="Não foi possível carregar o catálogo agora. Atualize a página ou tente novamente em instantes.";box.classList.remove("hidden");}
   }
   applyReservationStatuses();
+  renderCatalogFilters();
   renderCatalog();
   renderAdminProducts();
   renderAdminCategories();
@@ -294,6 +295,15 @@ function applyReservationStatuses(){
     if(["Pendente","Em análise","Confirmada"].includes(r.status)) p.status="reserved";
     if(r.status==="Vendido") p.status="exchanged";
   });
+}
+
+function renderCatalogFilters(){
+  const box=$("#category-filters");if(!box)return;
+  const categories=[...new Set(state.products.map(p=>p.category).filter(Boolean))]
+    .sort((a,b)=>categoryLabel(a).localeCompare(categoryLabel(b),"pt-BR"));
+  if(state.category!=="all"&&!categories.includes(state.category))state.category="all";
+  box.innerHTML=`<button class="filter ${state.category==="all"?"active":""}" type="button" data-category="all">Todos</button>`
+    +categories.map(key=>`<button class="filter ${state.category===key?"active":""}" type="button" data-category="${esc(key)}">${esc(categoryLabel(key))}</button>`).join("");
 }
 
 function filteredProducts(){
@@ -707,6 +717,13 @@ function duplicateProduct(code){
 async function saveProduct(event){
   event.preventDefault();const id=$("#admin-product-id").value,button=$("#admin-product-save"),msg=$("#management-message");
   const code=$("#admin-product-code").value.trim();
+  const currentProduct=id?state.products.find(p=>p.id===id):null;
+  if(currentProduct&&currentProduct.code!==code&&state.reservations.some(r=>r.codigoProduto===currentProduct.code)){
+    setMessage(msg,`O código "${currentProduct.code}" já está ligado a reservas e não pode ser alterado. Edite os outros campos normalmente.`,"error");
+    $("#admin-product-code").value=currentProduct.code;
+    $("#admin-product-code")?.focus();
+    return;
+  }
   const duplicate=state.products.find(p=>String(p.code).toLowerCase()===code.toLowerCase()&&p.id!==id);
   if(duplicate){
     setMessage(msg,`Já existe um produto com o código "${code}". Use um código diferente.`,"error");
