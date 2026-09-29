@@ -1,14 +1,6 @@
 const API_URL = "https://brecho-api-zebo.onrender.com/api";
 const ADM_CODE = "537586";
 
-const FALLBACK_PRODUCTS = [
-  {code:"001",name:"Jaqueta Jeans",category:"adult",size:"M",condition:"Muito bom",status:"available",description:"Jaqueta jeans versátil e bem conservada para acompanhar diferentes combinações.",trade:"3 alimentos não perecíveis",image:"https://images.pexels.com/photos/4440566/pexels-photo-4440566.jpeg?auto=compress&cs=tinysrgb&w=900"},
-  {code:"002",name:"Calça Jeans",category:"adult",size:"40",condition:"Muito bom",status:"available",description:"Calça jeans clássica, resistente e confortável para o dia a dia.",trade:"3 alimentos não perecíveis",image:"https://images.pexels.com/photos/1082529/pexels-photo-1082529.jpeg?auto=compress&cs=tinysrgb&w=900"},
-  {code:"003",name:"Tênis Urbano",category:"shoes",size:"38",condition:"Muito bom",status:"reserved",description:"Tênis urbano seminovo, confortável e pronto para novas caminhadas.",trade:"2 produtos de higiene pessoal",image:"https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=900"},
-  {code:"004",name:"Bolsa Caramelo",category:"shoes",size:"Único",condition:"Ótimo estado",status:"available",description:"Bolsa funcional com acabamento clássico e amplo espaço interno.",trade:"2 alimentos não perecíveis",image:"https://images.pexels.com/photos/1152077/pexels-photo-1152077.jpeg?auto=compress&cs=tinysrgb&w=900"},
-  {code:"005",name:"Vestido Infantil",category:"children",size:"8 anos",condition:"Ótimo estado",status:"available",description:"Vestido infantil alegre e bem conservado para ganhar novas memórias.",trade:"2 produtos de higiene pessoal",image:"https://images.pexels.com/photos/15625985/pexels-photo-15625985.jpeg?auto=compress&cs=tinysrgb&w=900"},
-  {code:"006",name:"Sandália Bege",category:"shoes",size:"36",condition:"Bom estado",status:"exchanged",description:"Sandália elegante que já encontrou uma nova história.",trade:"2 alimentos não perecíveis",image:"https://images.pexels.com/photos/27204291/pexels-photo-27204291.jpeg?auto=compress&cs=tinysrgb&w=900"}
-];
 
 const state = {
   products: [],
@@ -83,11 +75,10 @@ function categoryLabel(value){
 function statusLabel(status){
   return ({available:"Disponível",reserved:"Reservado",exchanged:"Trocado"})[status] || status || "Disponível";
 }
-function resolveImage(value,code){
-  const fallback=FALLBACK_PRODUCTS.find(p=>p.code===code)?.image || "";
-  if(!value) return fallback;
+function resolveImage(value){
+  if(!value) return "";
   if(/^https?:\/\//i.test(value)||value.startsWith("data:")||value.startsWith("blob:")) return value;
-  try{return new URL(value,new URL(API_URL).origin).href}catch{return fallback}
+  try{return new URL(value,new URL(API_URL).origin).href}catch{return ""}
 }
 function normalizeProduct(p){
   return {
@@ -100,7 +91,7 @@ function normalizeProduct(p){
     status:p.status||"available",
     description:p.descricao||p.description||"",
     trade:p.troca||p.trade||"Consulte a equipe",
-    image:resolveImage(p.imagem||p.image,p.codigo||p.code)
+    image:resolveImage(p.imagem||p.image)
   };
 }
 
