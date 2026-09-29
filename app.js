@@ -100,18 +100,14 @@ function normalizePath(path="/"){
   return clean||"/";
 }
 function currentRoute(){
-  const hash=String(window.location.hash||"");
-  if(hash.startsWith("#/"))return normalizePath(hash.slice(1));
-  const legacy=normalizePath(window.location.pathname);
-  return legacy==="/" ? "/" : legacy;
+  return normalizePath(window.location.pathname);
 }
 function routeUrl(path){
-  const target=normalizePath(path);
-  return `/#${target}`;
+  return normalizePath(path);
 }
 function updateUrl(path,{replace=false}={}){
   const target=normalizePath(path);
-  if(currentRoute()===target && String(window.location.hash||"").startsWith("#/"))return;
+  if(currentRoute()===target)return;
   window.history[replace?"replaceState":"pushState"]({},"",routeUrl(target));
 }
 function persistAdminSession(unlocked){
@@ -136,7 +132,7 @@ function restoreRedirectPath(){
     sessionStorage.removeItem("brecho:route-redirect");
     const url=new URL(redirect,window.location.origin);
     const route=normalizePath(url.pathname);
-    if(normalizePath(window.location.pathname)==="/")window.history.replaceState({},"",routeUrl(route));
+    if(currentRoute()==="/")window.history.replaceState({},"",routeUrl(route));
   }catch{}
 }
 function showScreen(id,{updateRoute=true,replace=false}={}){
@@ -956,7 +952,6 @@ function bind(){
   $("#admin-export-reviews")?.addEventListener("click",exportReviews);
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}});
   window.addEventListener("popstate",()=>routeToCurrentLocation());
-  window.addEventListener("hashchange",()=>routeToCurrentLocation());
 }
 
 async function init(){
@@ -967,7 +962,6 @@ async function init(){
   iconRefresh();
   await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
   routeToCurrentLocation({replaceInvalid:true});
-  if(!String(window.location.hash||"").startsWith("#/"))updateUrl(currentRoute(),{replace:true});
   iconRefresh();
 }
 if (document.readyState === "loading") {
