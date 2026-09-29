@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: brecho-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_ACCESS_CODE
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://fuzzy-heart-project.lovable.app,https://id-preview--12faf864-0458-4e0d-97d5-24b6b1114160.lovable.app
