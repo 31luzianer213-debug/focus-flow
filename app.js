@@ -223,13 +223,27 @@ function toggleMenu(){
   $("#menu-toggle")?.setAttribute("aria-expanded",String(open));
 }
 
-async function api(path,options={}){
-  const response=await fetch(`${API_URL}${path}`,options);
-  if(!response.ok){
-    let data={}; try{data=await response.json()}catch{}
-    throw new Error(data.erro||data.mensagem||`Erro ${response.status}`);
+async function api(path,options={},timeoutMs=20000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  const externalSignal=options.signal;
+  if(externalSignal){
+    if(externalSignal.aborted)controller.abort();
+    else externalSignal.addEventListener("abort",()=>controller.abort(),{once:true});
   }
-  return response.status===204?null:response.json();
+  try{
+    const response=await fetch(`${API_URL}${path}`,{...options,signal:controller.signal});
+    if(!response.ok){
+      let data={}; try{data=await response.json()}catch{}
+      throw new Error(data.erro||data.mensagem||`Erro ${response.status}`);
+    }
+    return response.status===204?null:response.json();
+  }catch(error){
+    if(error?.name==="AbortError")throw new Error("A conexão demorou demais. Tente novamente.");
+    throw error;
+  }finally{
+    clearTimeout(timer);
+  }
 }
 
 async function loadProducts(){
@@ -242,10 +256,10 @@ async function loadProducts(){
     if(box) box.classList.add("hidden");
   }catch(error){
     console.warn(error);
-    state.products=FALLBACK_PRODUCTS.map(normalizeProduct);
+    state.products=[];
     state.usingFallback=true;
     state.apiStatus.products=false;
-    if(box){box.textContent="A API está demorando para responder. Mostrando uma prévia do catálogo enquanto isso.";box.classList.remove("hidden");}
+    if(box){box.textContent="Não foi possível carregar o catálogo agora. Atualize a página ou tente novamente em instantes.";box.classList.remove("hidden");}
   }
   applyReservationStatuses();
   renderCatalog();
@@ -701,8 +715,27 @@ function duplicateProduct(code){
 
 async function saveProduct(event){
   event.preventDefault();const id=$("#admin-product-id").value,button=$("#admin-product-save"),msg=$("#management-message");
+  const code=$("#admin-product-code").value.trim();
+  const duplicate=state.products.find(p=>String(p.code).toLowerCase()===code.toLowerCase()&&p.id!==id);
+  if(duplicate){
+    setMessage(msg,`Já existe um produto com o código "${code}". Use um código diferente.`,"error");
+    $("#admin-product-code")?.focus();
+    return;
+  }
+  const image=$("#admin-product-image").files[0];
+  if(image){
+    const allowed=["image/jpeg","image/png","image/webp","image/gif"];
+    if(!allowed.includes(image.type)){
+      setMessage(msg,"Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF.","error");
+      return;
+    }
+    if(image.size>8*1024*1024){
+      setMessage(msg,"A imagem é muito grande. Use um arquivo de até 8 MB.","error");
+      return;
+    }
+  }
   const form=new FormData();
-  form.set("codigo",$("#admin-product-code").value.trim());
+  form.set("codigo",code);
   form.set("nome",$("#admin-product-name").value.trim());
   form.set("categoria",$("#admin-product-category").value.trim());
   form.set("tamanho",$("#admin-product-size").value.trim());
@@ -710,7 +743,7 @@ async function saveProduct(event){
   form.set("status",$("#admin-product-status").value);
   form.set("troca",$("#admin-product-trade").value.trim());
   form.set("descricao",$("#admin-product-description").value.trim());
-  const image=$("#admin-product-image").files[0];if(image) form.set("imagem",image);
+  if(image) form.set("imagem",image);
   button.disabled=true;button.textContent="Salvando…";
   try{
     await api(id?`/produtos/${id}`:"/produtos",{method:id?"PUT":"POST",body:form});
@@ -719,8 +752,13 @@ async function saveProduct(event){
   finally{button.disabled=false;button.textContent="Salvar produto"}
 }
 async function deleteProduct(code){
-  const p=state.products.find(x=>x.code===code);if(!p?.id) return toast("Este item de prévia não pode ser excluído.");
-  if(!confirm(`Excluir "${p.name}"?`)) return;
+  const p=state.products.find(x=>x.code===code);if(!p?.id) return toast("Este produto não pode ser excluído agora.");
+  const activeReservations=state.reservations.filter(r=>r.codigoProduto===p.code&&["Pendente","Em análise","Confirmada"].includes(r.status));
+  if(activeReservations.length){
+    toast(`Não é possível excluir: há ${activeReservations.length} reserva(s) ativa(s) para este produto.`);
+    return;
+  }
+  if(!confirm(`Excluir "${p.name}"? Esta ação não pode ser desfeita.`)) return;
   try{await api(`/produtos/${p.id}`,{method:"DELETE"});await loadProducts();toast("Produto excluído")}catch(error){toast(error.message)}
 }
 async function cycleProduct(code){
@@ -776,10 +814,11 @@ async function updateReservation(id,status){
   }catch(error){toast(error.message)}
 }
 async function deleteReservation(id){
-  if(!confirm("Excluir esta reserva?")) return;
+  if(!confirm("Excluir esta reserva? Esta ação não pode ser desfeita.")) return;
   try{
     await api(`/reservas/${id}`,{method:"DELETE"});
     state.reservations=state.reservations.filter(r=>r._id!==id);
+    await loadProducts();
     renderReservations();renderAdminOverview();toast("Reserva excluída")
   }catch(error){toast(error.message)}
 }
