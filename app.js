@@ -852,7 +852,8 @@ function renderReviews(){
 }
 
 function csvCell(value){
-  const text=String(value??"");
+  let text=String(value??"");
+  if(/^[=+\-@]/.test(text.trimStart()))text="'"+text;
   return `"${text.replace(/"/g,'""')}"`;
 }
 function downloadCsv(filename,headers,rows){
