@@ -28,5 +28,8 @@ jobs:
       - name: Smoke tests
         run: bun run test
 
+      - name: Backend checks
+        run: npm --prefix backend run check
+
       - name: Build
         run: bun run build
