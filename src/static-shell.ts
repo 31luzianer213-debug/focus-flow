@@ -1,9 +1,10 @@
 import htmlTemplate from "./static-shell.html?raw";
-import appUrl from "../app.js?url";
-import styleUrl from "../style.css?url";
 
+/**
+ * The current Brechó UI is served as a complete HTML document.
+ * Its JS and CSS must live in /public; importing them with ?url
+ * emitted hashed /assets links that Lovable's SSR deployment did not serve.
+ */
 export function renderStaticShell() {
-  return htmlTemplate
-    .replace('href="/style.css"', `href="${styleUrl}"`)
-    .replace('src="/app.js"', `src="${appUrl}"`);
+  return htmlTemplate;
 }
