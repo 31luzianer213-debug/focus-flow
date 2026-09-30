@@ -1,8 +1,8 @@
 import fs from "node:fs";
 
 const html = fs.readFileSync("src/static-shell.html", "utf8");
-const js = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const js = fs.readFileSync("public/app.js", "utf8");
+const css = fs.readFileSync("public/style.css", "utf8");
 
 const checks = [];
 const check = (name, ok) => {
