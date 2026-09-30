@@ -136,3 +136,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .catalog-toolbar .filter{min-width:96px;text-align:center}
 @media(max-width:760px){.catalog-toolbar{align-items:stretch}.catalog-toolbar .search-box{max-width:none}.catalog-toolbar .filter-group{display:grid;grid-template-columns:1fr 1fr}.catalog-toolbar .filter{min-width:0}}
 @media(max-width:380px){.catalog-toolbar .filter-group{grid-template-columns:1fr}}
+
+/* Menu do topo centralizado no desktop */
+@media(min-width:821px){
+  .nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+  .nav .brand{justify-self:start}
+  .nav .nav-links{justify-self:center;justify-content:center}
+  .nav .menu-toggle{display:none}
+}
