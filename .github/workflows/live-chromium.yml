@@ -1,0 +1,25 @@
+name: Live Chromium audit
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --prefix /tmp/auditpw playwright@1.56.1
+      - run: /tmp/auditpw/node_modules/.bin/playwright install --with-deps chromium
+      - run: node tests/browser-audit.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-ui-screenshots
+          path: audit-screenshots/
+          retention-days: 5
