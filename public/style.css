@@ -264,3 +264,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .sticky-reserve .btn{font-size:.88rem;padding-inline:12px}
   .footer-actions{align-items:flex-start}
 }
+
+.pickup-info{display:flex;gap:10px;align-items:flex-start;margin:14px 0;padding:13px 14px;border-radius:14px;background:#f7f9fa;border:1px solid var(--line)}
+.pickup-info>svg{width:18px;height:18px;flex:0 0 auto;margin-top:2px;color:#176b4a}
+.pickup-info strong,.pickup-info span{display:block}
+.pickup-info span{margin-top:3px;color:var(--muted);font-size:.9rem;line-height:1.45}
+.tracking-pickup{margin-top:14px}
