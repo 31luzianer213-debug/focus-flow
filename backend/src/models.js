@@ -34,6 +34,7 @@ const reservaSchema = new mongoose.Schema(
   {
     nomeCompleto: { type: String, required: true, trim: true, maxlength: 120 },
     contato: { type: String, required: true, trim: true, maxlength: 120 },
+    protocolo: { type: String, unique: true, sparse: true, trim: true, maxlength: 32, index: true },
     codigoProduto: { type: String, required: true, trim: true, maxlength: 40, index: true },
     produtoId: { type: mongoose.Schema.Types.ObjectId, ref: "Produto", default: null, index: true },
     nomeProduto: { type: String, required: true, trim: true, maxlength: 120 },
@@ -42,7 +43,7 @@ const reservaSchema = new mongoose.Schema(
     quantidade: { type: Number, required: true, min: 1, max: 999 },
     status: {
       type: String,
-      enum: ["Pendente", "Em análise", "Confirmada", "Vendido", "Cancelada"],
+      enum: ["Pendente", "Em análise", "Confirmada", "Pronta para retirada", "Vendido", "Cancelada"],
       default: "Pendente",
       index: true,
     },
