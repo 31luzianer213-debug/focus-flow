@@ -969,3 +969,22 @@ if (document.readyState === "loading") {
 } else {
   void init();
 }
+// ============= Visualizador de foto em tela cheia =============
+(function(){
+  const box=document.createElement("div");
+  box.className="photo-lightbox";
+  box.setAttribute("role","dialog");box.setAttribute("aria-modal","true");box.hidden=true;
+  box.innerHTML='<button type="button" class="photo-lightbox-close" aria-label="Fechar foto">&times;</button><img alt="" /><p class="photo-lightbox-caption"></p>';
+  const mount=()=>document.body.appendChild(box);
+  document.body?mount():document.addEventListener("DOMContentLoaded",mount);
+  const img=box.querySelector("img"),cap=box.querySelector(".photo-lightbox-caption");
+  const close=()=>{box.hidden=true;document.body.style.overflow="";img.removeAttribute("src");};
+  document.addEventListener("click",e=>{
+    const t=e.target;
+    if(t.matches&&t.matches(".product-media img, .modal img:not(.photo-lightbox img), [data-zoomable]")&&t.src&&!box.contains(t)){
+      e.preventDefault();img.src=t.src;img.alt=t.alt||"";cap.textContent=t.alt||"";
+      box.hidden=false;document.body.style.overflow="hidden";
+    } else if(!box.hidden&&(t===box||t.classList.contains("photo-lightbox-close"))) close();
+  });
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!box.hidden)close();});
+})();
