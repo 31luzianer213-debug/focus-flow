@@ -26,6 +26,7 @@ const jsIdRefs = [...new Set([...js.matchAll(/\$\(["']#([A-Za-z0-9_:-]+)(?:[^"']
 check("all JS id refs exist", jsIdRefs.every((id) => idSet.has(id)));
 
 check("clean history router enabled", js.includes("window.location.pathname") && js.includes('addEventListener("popstate"') && !js.includes('hash.startsWith("#/")'));
+check("screen routing uses list selectors", js.includes('$(".screen").forEach') && js.includes('$("[data-screen-link]").forEach'));
 check("admin routes exist", ["/admin","/admin/produtos","/admin/categorias","/admin/reservas","/admin/avaliacoes","/admin/ferramentas"].every((r) => js.includes(r)));
 check("demo fallback products removed", !js.includes("FALLBACK_PRODUCTS"));
 check("API timeout exists", js.includes("AbortController") && js.includes("A conexão demorou demais"));
