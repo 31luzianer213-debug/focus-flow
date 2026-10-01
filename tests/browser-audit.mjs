@@ -16,8 +16,8 @@ for (const [path,expected] of Object.entries(routes)) {
     await page.waitForTimeout(1200);
     const state = await page.evaluate(() => ({
       active: document.querySelector(".screen.active")?.id,
-      css: !!document.querySelector('link[href="/style.css"]'),
-      cssLoaded: [...document.styleSheets].some(s=>s.href?.endsWith("/style.css")),
+      css: !!document.querySelector('link[href="/brecho-style-ux-v2.css"]'),
+      cssLoaded: [...document.styleSheets].some(s=>s.href?.includes("/brecho-style-ux-v2.css")),
       title: document.title,
       width: document.documentElement.scrollWidth,
       pathname: location.pathname,
@@ -25,7 +25,7 @@ for (const [path,expected] of Object.entries(routes)) {
       activeIds: [...document.querySelectorAll(".screen.active")].map(x=>x.id),
       shellCount: document.querySelectorAll(".screen").length
     }));
-    const appJs = await page.evaluate(async()=>{ try{return await (await fetch("/app.js?audit="+Date.now(),{cache:"no-store"})).text()}catch(e){return "FETCH_ERROR:"+e} });
+    const appJs = await page.evaluate(async()=>{ try{return await (await fetch("/brecho-app-ux-v2.js?audit="+Date.now(),{cache:"no-store"})).text()}catch(e){return "FETCH_ERROR:"+e} });
     state.appHasProductsReady = appJs.includes("productsReady");
     state.appHasImmediateRouteInit = appJs.includes("routeToCurrentLocation({replaceInvalid:false})");
     state.appBytes = appJs.length;
