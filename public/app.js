@@ -16,6 +16,7 @@ const state = {
   favorites: new Set(),
   catalogScrollY: 0,
   lastReservation: null,
+  publicConfig: {},
   adminUnlocked: false,
   adminToken: "",
   usingFallback: false,
@@ -85,6 +86,10 @@ function loadLastReservation(){
 }
 
 function iconRefresh(){ if(window.lucide) window.lucide.createIcons(); }
+function setPageMeta(screen){
+  const titles={home:"Brechó Solidário Online",catalog:"Catálogo | Brechó Solidário",how:"Como funciona | Brechó Solidário",rules:"Regras | Brechó Solidário",impact:"Impacto | Brechó Solidário",tracking:"Minha reserva | Brechó Solidário",feedback:"Avaliação | Brechó Solidário",adm:"Equipe | Brechó Solidário",management:"Gestão | Brechó Solidário",reservation:"Reservar peça | Brechó Solidário",confirmation:"Reserva recebida | Brechó Solidário"};
+  if(screen!=="details")document.title=titles[screen]||"Brechó Solidário Online";
+}
 function toast(message){
   const el=$("#toast"); if(!el) return;
   el.textContent=message; el.classList.add("show");
@@ -197,6 +202,7 @@ function showScreen(id,{updateRoute=true,replace=false,preserveScroll=false}={})
   if(target.id==="management") renderAdminAll();
   if(target.id==="impact")renderImpactStats();
   if(target.id==="tracking")prefillTracking();
+  setPageMeta(target.id);
   if(updateRoute){
     const route=target.id==="management"?ADMIN_ROUTES.overview:SCREEN_ROUTES[target.id];
     if(route)updateUrl(route,{replace});
@@ -293,6 +299,26 @@ async function adminApi(path,options={},timeoutMs=20000){
   const headers={...(options.headers||{})};
   if(state.adminToken)headers.Authorization=`Bearer ${state.adminToken}`;
   return api(path,{...options,headers},timeoutMs);
+}
+
+async function loadPublicConfig(){
+  try{
+    const config=await api("/configuracoes/publicas");
+    state.publicConfig=config&&typeof config==="object"?config:{};
+    const phone=state.publicConfig.whatsapp_equipe||state.publicConfig.whatsapp||"";
+    if(phone)window.BRECHO_WHATSAPP=String(phone);
+    const place=state.publicConfig.retirada_local||"";
+    const hours=state.publicConfig.retirada_horario||"";
+    const validity=state.publicConfig.reserva_validade||"";
+    const parts=[place&&`Local: ${place}`,hours&&`Horário: ${hours}`,validity&&`Prazo: ${validity}`].filter(Boolean);
+    if(parts.length){
+      const text=parts.join(" · ");
+      if($("#pickup-copy"))$("#pickup-copy").textContent=text;
+      if($("#tracking-pickup-copy"))$("#tracking-pickup-copy").textContent=text;
+    }
+  }catch(error){
+    // Backend antigo ainda não possui configurações públicas.
+  }
 }
 
 async function loadProducts(){
@@ -456,6 +482,7 @@ function openProduct(code,{updateRoute=true,replace=false}={}){
   $("#detail-image").src=imageOrFallback(p.image); $("#detail-image").alt=p.name; $("#detail-image").onerror=()=>{$("#detail-image").src=FALLBACK_IMAGE};
   $("#detail-code").textContent=`CÓDIGO ${p.code}`;
   $("#detail-name").textContent=p.name;
+  document.title=`${p.name} · Tam. ${p.size} | Brechó Solidário`;
   $("#detail-description").textContent=p.description;
   $("#detail-category").textContent=categoryLabel(p.category);
   $("#detail-size").textContent=p.size;
@@ -532,10 +559,12 @@ function renderTrackingResult(reservation){
   const box=$("#tracking-result");if(!box)return;
   const protocol=reservationProtocol(reservation);
   box.classList.remove("hidden");
+  const completed=["Vendido","Concluída"].includes(reservation.status);
   box.innerHTML=`<div class="tracking-head"><div><span class="kicker">PROTOCOLO ${esc(protocol)}</span><h3>${esc(reservation.nomeProduto||reservation.codigoProduto||"Reserva")}</h3></div><span class="status ${reservationStatusClass(reservation.status)}">${esc(reservation.status||"Pendente")}</span></div>
     ${reservationStatusSteps(reservation.status)}
     <div class="tracking-meta"><div><span>Troca</span><strong>${esc(reservation.itemDoacao||reservation.trade||"Consulte a equipe")}</strong></div><div><span>Contato</span><strong>${esc(reservation.contato||"—")}</strong></div></div>
     ${reservation.observacoesEquipe?`<div class="tracking-note"><i data-lucide="message-circle"></i><span>${esc(reservation.observacoesEquipe)}</span></div>`:""}
+    ${completed?'<div class="tracking-complete-cta"><strong>Troca concluída 🎉</strong><span>Conte como foi sua experiência.</span><button class="btn btn-secondary" type="button" data-screen-link="feedback">Avaliar experiência</button></div>':""}
     <p class="field-help">Se o status mudar, consulte novamente com o mesmo protocolo e WhatsApp.</p>`;
   iconRefresh();
 }
@@ -982,7 +1011,7 @@ async function cycleProduct(code){
 }
 function editProduct(code){const p=state.products.find(x=>x.code===code);if(!p?.id)return toast("Este item de prévia não pode ser editado.");openProductForm(p)}
 
-function reservationStatusClass(status){return status==="Vendido"?"exchanged":["Pendente","Em análise","Confirmada"].includes(status)?"reserved":"available"}
+function reservationStatusClass(status){return status==="Vendido"?"exchanged":["Pendente","Em análise","Confirmada","Pronta para retirada"].includes(status)?"reserved":status==="Cancelada"?"cancelled":"available"}
 function whatsappUrl(contact="",message=""){
   let digits=String(contact).replace(/\D/g,"");
   if((digits.length===10||digits.length===11)&&!digits.startsWith("55"))digits="55"+digits;
@@ -1195,7 +1224,7 @@ async function init(){
   bind();
   showScreen("home",{updateRoute:false});
   iconRefresh();
-  await loadProducts().catch(()=>{});
+  await Promise.allSettled([loadProducts(),loadPublicConfig()]);
   if(state.adminUnlocked)await Promise.allSettled([loadReservations(),loadReviews()]);
   routeToCurrentLocation({replaceInvalid:true});
   iconRefresh();
