@@ -270,3 +270,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .pickup-info strong,.pickup-info span{display:block}
 .pickup-info span{margin-top:3px;color:var(--muted);font-size:.9rem;line-height:1.45}
 .tracking-pickup{margin-top:14px}
+
+.status.cancelled{background:#f3f4f5;color:#687784}
+.tracking-complete-cta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px;padding:14px;border-radius:14px;background:#eef7f2;border:1px solid #d6eadf}
+.tracking-complete-cta strong{color:#176b4a}
+.tracking-complete-cta span{color:var(--muted);flex:1 1 180px}
