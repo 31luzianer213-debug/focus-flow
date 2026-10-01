@@ -188,8 +188,8 @@ function showScreen(id,{updateRoute=true,replace=false,preserveScroll=false}={})
   const target=document.getElementById(id) || document.getElementById("home");
   const leavingCatalog=$(".screen.active")?.id==="catalog"&&target.id!=="catalog";
   if(leavingCatalog)state.catalogScrollY=window.scrollY||0;
-  $(".screen").forEach(s=>s.classList.toggle("active",s===target));
-  $("[data-screen-link]").forEach(b=>{
+  $$(".screen").forEach(s=>s.classList.toggle("active",s===target));
+  $$("[data-screen-link]").forEach(b=>{
     const active=b.dataset.screenLink===target.id;
     b.classList.toggle("active",active);
     if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
