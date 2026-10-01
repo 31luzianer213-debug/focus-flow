@@ -1,8 +1,8 @@
 import fs from "node:fs";
 
 const html = fs.readFileSync("src/static-shell.html", "utf8");
-const js = fs.readFileSync("public/app.js", "utf8");
-const css = fs.readFileSync("public/style.css", "utf8");
+const js = fs.readFileSync("public/brecho-app-ux-v2.js", "utf8");
+const css = fs.readFileSync("public/brecho-style-ux-v2.css", "utf8");
 
 const checks = [];
 const check = (name, ok) => {
@@ -38,7 +38,7 @@ check("category placeholder disabled", html.includes('disabled selected hidden>S
 check("categories are dynamic", js.includes("function renderCatalogFilters") && !html.includes('data-category="adult"'));
 check("responsive admin CSS exists", css.includes("@media(max-width:760px)") && css.includes(".admin-dashboard-grid{grid-template-columns:1fr}"));
 check("Lovable badge hidden", css.includes("#lovable-badge") && css.includes("display: none !important"));
-check("public assets exist", fs.existsSync("public/app.js") && fs.existsSync("public/style.css"));
+check("public assets exist", fs.existsSync("public/brecho-app-ux-v2.js") && fs.existsSync("public/brecho-style-ux-v2.css"));
 check("tracking route exists", js.includes('tracking: "/minha-reserva"') && html.includes('id="tracking"') && js.includes("trackReservation"));
 check("reservation protocol UX exists", html.includes('id="confirmation-protocol"') && js.includes("reservationProtocol"));
 check("favorites persist locally", html.includes('id="catalog-favorites"') && js.includes("brecho:favorites"));
