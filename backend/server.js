@@ -160,6 +160,10 @@ async function audit(req, entidade, entidadeId, acao, antes, depois) {
   }
 }
 
+function createReservationProtocol() {
+  return "BR-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
 function signAdminToken() {
   return jwt.sign(
     { role: "admin", type: "admin-session" },
@@ -402,6 +406,7 @@ app.post("/api/reservas", publicWriteLimiter, async (req, res, next) => {
     }
 
     const reservation = await Reserva.create({
+      protocolo: createReservationProtocol(),
       nomeCompleto: safeText(req.body?.nomeCompleto, {
         required: true,
         min: 3,
@@ -441,6 +446,7 @@ app.post("/api/reservas", publicWriteLimiter, async (req, res, next) => {
     await audit(req, "reserva", reservation._id, "criou", null, reservation);
     return res.status(201).json({
       _id: reservation._id,
+      protocolo: reservation.protocolo,
       codigoProduto: reservation.codigoProduto,
       nomeProduto: reservation.nomeProduto,
       status: reservation.status,
@@ -453,6 +459,49 @@ app.post("/api/reservas", publicWriteLimiter, async (req, res, next) => {
         { $set: { status: "available" } },
       ).catch(() => {});
     }
+    next(error);
+  }
+});
+
+
+// Consulta pública limitada: exige protocolo + mesmo contato da reserva.
+// Nunca retorna dados administrativos sensíveis ou listas completas.
+app.get("/api/reservas/acompanhar", async (req, res, next) => {
+  try {
+    const protocolo = safeText(req.query?.protocolo, {
+      required: true,
+      min: 4,
+      max: 32,
+      field: "Protocolo",
+    }).toUpperCase();
+    const contato = safeText(req.query?.contato, {
+      required: true,
+      min: 8,
+      max: 120,
+      field: "Contato",
+    });
+    const digits = String(contato).replace(/\D/g, "");
+    const reservation = await Reserva.findOne(notDeleted({ protocolo }));
+    if (!reservation) {
+      return res.status(404).json({ mensagem: "Reserva não encontrada." });
+    }
+    const savedDigits = String(reservation.contato || "").replace(/\D/g, "");
+    if (!digits || digits !== savedDigits) {
+      return res.status(404).json({ mensagem: "Reserva não encontrada." });
+    }
+    return res.json({
+      protocolo: reservation.protocolo,
+      codigoProduto: reservation.codigoProduto,
+      nomeProduto: reservation.nomeProduto,
+      contato: reservation.contato,
+      itemDoacao: reservation.itemDoacao,
+      quantidade: reservation.quantidade,
+      status: reservation.status,
+      observacoesEquipe: reservation.observacoesEquipe || "",
+      createdAt: reservation.createdAt,
+      updatedAt: reservation.updatedAt,
+    });
+  } catch (error) {
     next(error);
   }
 });
@@ -589,7 +638,7 @@ app.delete("/api/produtos/:id", requireAdmin, async (req, res, next) => {
     const activeReservations = await Reserva.countDocuments(
       notDeleted({
         codigoProduto: product.codigo,
-        status: { $in: ["Pendente", "Em análise", "Confirmada"] },
+        status: { $in: ["Pendente", "Em análise", "Confirmada", "Pronta para retirada"] },
       }),
     );
     if (activeReservations) {
@@ -764,7 +813,7 @@ app.put("/api/reservas/:id", requireAdmin, async (req, res, next) => {
     const newStatus = req.body?.status !== undefined
       ? safeText(req.body.status, { required: true, max: 30, field: "Status" })
       : oldStatus;
-    const allowed = ["Pendente", "Em análise", "Confirmada", "Vendido", "Cancelada"];
+    const allowed = ["Pendente", "Em análise", "Confirmada", "Pronta para retirada", "Vendido", "Cancelada"];
     if (!allowed.includes(newStatus)) {
       return res.status(400).json({ mensagem: "Status de reserva inválido." });
     }
@@ -799,7 +848,7 @@ app.put("/api/reservas/:id", requireAdmin, async (req, res, next) => {
         activeFilter({ codigo: reservation.codigoProduto }),
         { $set: { status: "exchanged" } },
       );
-    } else if (["Pendente", "Em análise", "Confirmada"].includes(newStatus)) {
+    } else if (["Pendente", "Em análise", "Confirmada", "Pronta para retirada"].includes(newStatus)) {
       await Produto.updateOne(
         activeFilter({ codigo: reservation.codigoProduto, status: { $ne: "exchanged" } }),
         { $set: { status: "reserved" } },
@@ -822,7 +871,7 @@ app.delete("/api/reservas/:id", requireAdmin, async (req, res, next) => {
     reservation.deletedAt = new Date();
     await reservation.save();
 
-    if (["Pendente", "Em análise", "Confirmada"].includes(reservation.status)) {
+    if (["Pendente", "Em análise", "Confirmada", "Pronta para retirada"].includes(reservation.status)) {
       await Produto.updateOne(
         activeFilter({ codigo: reservation.codigoProduto, status: "reserved" }),
         { $set: { status: "available" } },
