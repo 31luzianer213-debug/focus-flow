@@ -9,6 +9,13 @@ const state = {
   selectedProduct: null,
   category: "all",
   search: "",
+  catalogStatus: "available",
+  catalogSize: "all",
+  catalogSort: "available",
+  favoritesOnly: false,
+  favorites: new Set(),
+  catalogScrollY: 0,
+  lastReservation: null,
   adminUnlocked: false,
   usingFallback: false,
   apiStatus: {products:false,reservations:false,reviews:false},
@@ -29,6 +36,7 @@ const SCREEN_ROUTES = {
   rules: "/regras",
   impact: "/impacto",
   feedback: "/avaliacao",
+  tracking: "/minha-reserva",
   adm: "/adm",
   reservation: "/reserva",
   confirmation: "/confirmacao"
@@ -47,6 +55,33 @@ const ROUTE_ADMIN_TABS = Object.fromEntries(Object.entries(ADMIN_ROUTES).map(([t
 const $ = (selector, scope=document) => scope.querySelector(selector);
 const $$ = (selector, scope=document) => [...scope.querySelectorAll(selector)];
 const esc = (value="") => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+const FALLBACK_IMAGE = "data:image/svg+xml;charset=UTF-8,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"><rect width="100%" height="100%" fill="#eef2f4"/><g fill="#526575" font-family="Arial,sans-serif" text-anchor="middle"><text x="50%" y="47%" font-size="42" font-weight="700">Brechó Solidário</text><text x="50%" y="54%" font-size="26">Imagem não disponível</text></g></svg>');
+
+function readFavorites(){
+  try{return new Set(JSON.parse(localStorage.getItem("brecho:favorites")||"[]"))}catch{return new Set()}
+}
+function writeFavorites(){
+  try{localStorage.setItem("brecho:favorites",JSON.stringify([...state.favorites]))}catch{}
+}
+function toggleFavorite(code){
+  if(state.favorites.has(code))state.favorites.delete(code);else state.favorites.add(code);
+  writeFavorites();renderCatalog();updateFavoriteButton();
+  toast(state.favorites.has(code)?"Peça salva.":"Peça removida dos salvos.");
+}
+function imageOrFallback(value){return value||FALLBACK_IMAGE}
+function normalizeContact(value=""){return String(value).replace(/\D/g,"")}
+function reservationProtocol(reservation={}){
+  if(reservation.protocolo)return String(reservation.protocolo).toUpperCase();
+  const raw=String(reservation._id||reservation.id||Date.now().toString(36)).replace(/[^a-z0-9]/gi,"");
+  return "BR-"+raw.slice(-8).toUpperCase();
+}
+function saveLastReservation(data){
+  state.lastReservation=data;
+  try{localStorage.setItem("brecho:last-reservation",JSON.stringify(data))}catch{}
+}
+function loadLastReservation(){
+  try{return JSON.parse(localStorage.getItem("brecho:last-reservation")||"null")}catch{return null}
+}
 
 function iconRefresh(){ if(window.lucide) window.lucide.createIcons(); }
 function toast(message){
@@ -135,19 +170,33 @@ function restoreRedirectPath(){
     if(currentRoute()==="/")window.history.replaceState({},"",routeUrl(route));
   }catch{}
 }
-function showScreen(id,{updateRoute=true,replace=false}={}){
+function showScreen(id,{updateRoute=true,replace=false,preserveScroll=false}={}){
   if(id==="management" && !state.adminUnlocked) id="adm";
   const target=document.getElementById(id) || document.getElementById("home");
-  $$(".screen").forEach(s=>s.classList.toggle("active",s===target));
-  $$("[data-screen-link]").forEach(b=>b.classList.toggle("active",b.dataset.screenLink===target.id));
+  const leavingCatalog=$(".screen.active")?.id==="catalog"&&target.id!=="catalog";
+  if(leavingCatalog)state.catalogScrollY=window.scrollY||0;
+  $(".screen").forEach(s=>s.classList.toggle("active",s===target));
+  $("[data-screen-link]").forEach(b=>{
+    const active=b.dataset.screenLink===target.id;
+    b.classList.toggle("active",active);
+    if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
+  });
   closeMenu();
-  window.scrollTo({top:0,behavior:"smooth"});
-  if(target.id==="catalog") renderCatalog();
+  if(target.id==="catalog"){
+    renderCatalog();
+    requestAnimationFrame(()=>window.scrollTo({top:preserveScroll?state.catalogScrollY:0,behavior:"auto"}));
+  }else{
+    window.scrollTo({top:0,behavior:"auto"});
+  }
   if(target.id==="management") renderAdminAll();
+  if(target.id==="impact")renderImpactStats();
+  if(target.id==="tracking")prefillTracking();
   if(updateRoute){
     const route=target.id==="management"?ADMIN_ROUTES.overview:SCREEN_ROUTES[target.id];
     if(route)updateUrl(route,{replace});
   }
+  const heading=target.querySelector("h1,h2");
+  if(heading){heading.setAttribute("tabindex","-1");setTimeout(()=>heading.focus({preventScroll:true}),0)}
   iconRefresh();
 }
 function routeToCurrentLocation({replaceInvalid=false}={}){
@@ -241,6 +290,7 @@ async function loadProducts(){
     state.usingFallback=false;
     state.apiStatus.products=true;
     if(box) box.classList.add("hidden");
+    $("#product-grid")?.setAttribute("aria-busy","false");
   }catch(error){
     console.warn(error);
     state.products=[];
@@ -250,7 +300,9 @@ async function loadProducts(){
   }
   applyReservationStatuses();
   renderCatalogFilters();
+  renderCatalogSizes();
   renderCatalog();
+  renderImpactStats();
   renderAdminProducts();
   renderAdminCategories();
   renderAdminOverview();
@@ -301,26 +353,41 @@ function renderCatalogFilters(){
   box.innerHTML=`<button class="filter ${state.category==="all"?"active":""}" type="button" data-category="all">Todos</button>`
     +categories.map(key=>`<button class="filter ${state.category===key?"active":""}" type="button" data-category="${esc(key)}">${esc(categoryLabel(key))}</button>`).join("");
 }
-
+function renderCatalogSizes(){
+  const select=$("#catalog-size");if(!select)return;
+  const current=state.catalogSize;
+  const sizes=[...new Set(state.products.map(p=>String(p.size||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));
+  select.innerHTML='<option value="all">Todos os tamanhos</option>'+sizes.map(size=>`<option value="${esc(size)}">${esc(size)}</option>`).join("");
+  select.value=sizes.includes(current)?current:"all";
+  if(select.value!==current)state.catalogSize="all";
+}
 function filteredProducts(){
   const term=state.search.toLowerCase().trim();
-  return state.products.filter(p=>{
+  let list=state.products.filter(p=>{
     const cat=state.category==="all"||p.category===state.category;
-    const text=!term||[p.name,p.code,p.category,p.description].join(" ").toLowerCase().includes(term);
-    return cat&&text;
+    const status=state.catalogStatus==="all"||p.status===state.catalogStatus;
+    const size=state.catalogSize==="all"||String(p.size)===state.catalogSize;
+    const favorite=!state.favoritesOnly||state.favorites.has(p.code);
+    const text=!term||[p.name,p.code,p.category,p.description,p.size,p.condition,p.trade].join(" ").toLowerCase().includes(term);
+    return cat&&status&&size&&favorite&&text;
   });
+  if(state.catalogSort==="name")list.sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+  else if(state.catalogSort==="available")list.sort((a,b)=>(a.status==="available"?0:1)-(b.status==="available"?0:1));
+  return list;
 }
 function productCard(p){
+  const favorite=state.favorites.has(p.code);
   return `<article class="product-card">
-    <div class="product-media">
-      <img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.opacity='.2'" />
+    <div class="product-media" data-open-product="${esc(p.code)}" role="button" tabindex="0" aria-label="Abrir ${esc(p.name)}">
+      <img src="${esc(imageOrFallback(p.image))}" alt="${esc(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(FALLBACK_IMAGE)}'" />
       <span class="status ${esc(p.status)}">${esc(statusLabel(p.status))}</span>
+      <button class="favorite-card ${favorite?"active":""}" type="button" data-favorite-product="${esc(p.code)}" aria-label="${favorite?"Remover dos salvos":"Salvar peça"}" aria-pressed="${favorite}"><i data-lucide="heart"></i></button>
     </div>
     <div class="product-body">
       <span class="product-code">CÓDIGO ${esc(p.code)}</span>
-      <h3>${esc(p.name)}</h3>
-      <div class="product-meta"><span>${esc(categoryLabel(p.category))}</span><span>Tam. ${esc(p.size)}</span></div>
-      <div class="product-trade"><small>TROCA SOLIDÁRIA</small><strong>${esc(String(p.trade).replace(/^[^\wÀ-ÿ]+/,""))}</strong></div>
+      <h3><button class="product-title-link" type="button" data-open-product="${esc(p.code)}">${esc(p.name)}</button></h3>
+      <div class="product-meta"><span>${esc(categoryLabel(p.category))}</span><span>Tam. ${esc(p.size)}</span><span>${esc(p.condition)}</span></div>
+      <div class="product-trade"><small>PARA LEVAR</small><strong>${esc(String(p.trade).replace(/^[^\wÀ-ÿ]+/,""))}</strong></div>
       <button class="btn btn-secondary" type="button" data-open-product="${esc(p.code)}">Ver produto <i data-lucide="arrow-up-right"></i></button>
     </div>
   </article>`;
@@ -328,14 +395,52 @@ function productCard(p){
 function renderCatalog(){
   const list=filteredProducts(),grid=$("#product-grid"),count=$("#product-count");
   if(count) count.textContent=String(list.length);
-  if(grid) grid.innerHTML=list.length?list.map(productCard).join(""):`<div class="state-box">Nenhuma peça encontrada com esses filtros.</div>`;
+  const favoriteButton=$("#catalog-favorites");
+  if(favoriteButton){favoriteButton.classList.toggle("active",state.favoritesOnly);favoriteButton.setAttribute("aria-pressed",String(state.favoritesOnly))}
+  if(grid){
+    grid.classList.remove("skeleton-grid");
+    grid.setAttribute("aria-busy","false");
+    grid.innerHTML=list.length?list.map(productCard).join(""):`<div class="state-box empty-catalog"><i data-lucide="search-x"></i><strong>Nenhuma peça encontrada.</strong><span>Tente outros filtros ou veja todo o catálogo.</span><button class="btn btn-secondary" type="button" id="empty-clear-filters">Limpar filtros</button></div>`;
+  }
   iconRefresh();
+}
+function clearCatalogFilters(){
+  state.search="";state.category="all";state.catalogStatus="available";state.catalogSize="all";state.catalogSort="available";state.favoritesOnly=false;
+  if($("#catalog-search"))$("#catalog-search").value="";
+  if($("#catalog-status"))$("#catalog-status").value="available";
+  if($("#catalog-size"))$("#catalog-size").value="all";
+  if($("#catalog-sort"))$("#catalog-sort").value="available";
+  renderCatalogFilters();renderCatalog();
+}
+function renderImpactStats(){
+  const total=state.products.length;
+  const circulated=state.products.filter(p=>p.status==="exchanged").length;
+  const available=state.products.filter(p=>p.status==="available").length;
+  if($("#impact-total"))$("#impact-total").textContent=String(total);
+  if($("#impact-circulated"))$("#impact-circulated").textContent=String(circulated);
+  if($("#impact-available"))$("#impact-available").textContent=String(available);
+}
+function updateFavoriteButton(){
+  const p=state.selectedProduct,button=$("#favorite-button");if(!p||!button)return;
+  const favorite=state.favorites.has(p.code);
+  button.classList.toggle("active",favorite);button.setAttribute("aria-pressed",String(favorite));
+  button.innerHTML=`<i data-lucide="heart"></i> ${favorite?"Salvo":"Salvar"}`;
+  iconRefresh();
+}
+async function shareSelectedProduct(){
+  const p=state.selectedProduct;if(!p)return;
+  const url=window.location.origin+`/produto/${encodeURIComponent(p.code)}`;
+  const text=`${p.name} — Tam. ${p.size}. Troca: ${String(p.trade).replace(/^[^\wÀ-ÿ]+/,"")}. Brechó Solidário.`;
+  try{
+    if(navigator.share)await navigator.share({title:p.name,text,url});
+    else{await navigator.clipboard.writeText(url);toast("Link copiado.");}
+  }catch(error){if(error?.name!=="AbortError")toast("Não foi possível compartilhar agora.")}
 }
 function openProduct(code,{updateRoute=true,replace=false}={}){
   const p=state.products.find(x=>x.code===code); if(!p) return;
   state.selectedProduct=p;
   persistSelectedProduct(p.code);
-  $("#detail-image").src=p.image; $("#detail-image").alt=p.name;
+  $("#detail-image").src=imageOrFallback(p.image); $("#detail-image").alt=p.name; $("#detail-image").onerror=()=>{$("#detail-image").src=FALLBACK_IMAGE};
   $("#detail-code").textContent=`CÓDIGO ${p.code}`;
   $("#detail-name").textContent=p.name;
   $("#detail-description").textContent=p.description;
@@ -343,6 +448,8 @@ function openProduct(code,{updateRoute=true,replace=false}={}){
   $("#detail-size").textContent=p.size;
   $("#detail-condition").textContent=p.condition;
   $("#detail-trade").textContent=String(p.trade).replace(/^[^\wÀ-ÿ]+/,"");
+  if($("#sticky-trade"))$("#sticky-trade").textContent=String(p.trade).replace(/^[^\wÀ-ÿ]+/,"");
+  updateFavoriteButton();
   const status=$("#detail-status"); status.textContent=statusLabel(p.status); status.className=`status ${p.status}`;
   const reserve=$("#reserve-button");
   reserve.disabled=p.status!=="available";
@@ -352,30 +459,97 @@ function openProduct(code,{updateRoute=true,replace=false}={}){
 }
 function startReservation(){
   const p=state.selectedProduct;if(!p||p.status!=="available") return;
-  $("#reservation-summary").textContent=`Você está solicitando a reserva de ${p.name} — código ${p.code}. Troca: ${String(p.trade).replace(/^[^\wÀ-ÿ]+/,"")}.`;
-  $("#reservation-form").reset(); setMessage($("#reservation-message"),"");
+  const trade=String(p.trade).replace(/^[^\wÀ-ÿ]+/,"");
+  $("#reservation-summary").textContent=`${p.name} · Tam. ${p.size} · código ${p.code}`;
+  $("#reservation-trade").textContent=trade;
+  $("#reservation-form").reset();$("#alternate-donation")?.classList.add("hidden");$("#alternate-donation-toggle")?.setAttribute("aria-expanded","false");
+  setMessage($("#reservation-message"),"");
   showScreen("reservation");
+}
+function generateLocalProtocol(created){
+  return reservationProtocol(created);
+}
+function whatsappTeamUrl(protocol,product){
+  const configured=String(window.BRECHO_WHATSAPP||"").replace(/\D/g,"");
+  if(!configured)return "";
+  const text=encodeURIComponent(`Olá! Minha reserva do Brechó Solidário é ${protocol}, produto ${product?.name||product?.code||""}.`);
+  return `https://wa.me/${configured}?text=${text}`;
 }
 async function submitReservation(event){
   event.preventDefault(); const p=state.selectedProduct;if(!p) return;
   const button=$("#reservation-submit"),msg=$("#reservation-message");
-  const donation=$('input[name="donation-type"]:checked')?.value||"";
+  if(!$("#trade-confirm")?.checked){setMessage(msg,"Confirme que levará o item indicado para continuar.","error");return}
+  const alternate=!$("#alternate-donation")?.classList.contains("hidden");
+  const altItem=$("#donation-item")?.value.trim()||"";
+  if(alternate&&!altItem){setMessage(msg,"Informe qual item você precisa combinar com a equipe.","error");$("#donation-item")?.focus();return}
+  const trade=String(p.trade).replace(/^[^\wÀ-ÿ]+/,"");
   const payload={
     nomeCompleto:$("#full-name").value.trim(),contato:$("#contact").value.trim(),
-    codigoProduto:p.code,nomeProduto:p.name,tipoDoacao:donation,
-    itemDoacao:$("#donation-item").value.trim(),quantidade:Number($("#donation-quantity").value||1),
-    status:"Pendente",observacoesEquipe:""
+    codigoProduto:p.code,nomeProduto:p.name,tipoDoacao:alternate?"Outro":"Conforme produto",
+    itemDoacao:alternate?altItem:trade,quantidade:alternate?Number($("#donation-quantity").value||1):1,
+    status:"Pendente",observacoesEquipe:alternate?"Cliente solicitou combinar outro item.":""
   };
-  button.disabled=true;button.textContent="Enviando…";setMessage(msg,"Enviando sua solicitação…");
+  button.disabled=true;button.textContent="Confirmando…";setMessage(msg,"Enviando sua reserva…");
   try{
     const created=await api("/reservas",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    state.reservations.unshift(created);p.status="reserved";
-    $("#confirmation-text").textContent=`Sua solicitação para ${p.name} foi registrada. A equipe vai analisar o pedido e poderá entrar em contato pelo número informado.`;
+    const protocol=generateLocalProtocol(created);
+    const saved={...created,protocolo:protocol,contato:payload.contato,nomeCompleto:payload.nomeCompleto,codigoProduto:p.code,nomeProduto:p.name,itemDoacao:payload.itemDoacao,quantidade:payload.quantidade,status:created?.status||"Pendente",trade,createdAt:created?.createdAt||new Date().toISOString()};
+    saveLastReservation(saved);
+    p.status="reserved";
+    $("#confirmation-protocol").textContent=protocol;
+    $("#confirmation-text").textContent=`Sua solicitação para ${p.name} foi registrada. Guarde o protocolo para acompanhar o status.`;
+    $("#confirmation-summary").innerHTML=`<div><span>Produto</span><strong>${esc(p.name)}</strong></div><div><span>Troca</span><strong>${esc(payload.itemDoacao)}</strong></div><div><span>Status</span><strong>Solicitação recebida</strong></div>`;
+    const wa=$("#confirmation-whatsapp"),waUrl=whatsappTeamUrl(protocol,p);
+    if(wa&&waUrl){wa.href=waUrl;wa.classList.remove("hidden")}else wa?.classList.add("hidden");
     renderCatalog();showScreen("confirmation");
-  }catch(error){setMessage(msg,error.message||"Não foi possível enviar a reserva.","error")}
-  finally{button.disabled=false;button.innerHTML='Enviar solicitação <i data-lucide="send"></i>';iconRefresh()}
+  }catch(error){
+    const message=/409|não está mais disponível|disponível para reserva/i.test(String(error.message))?"Essa peça acabou de ser reservada por outra pessoa. Veja outras opções disponíveis.":error.message||"Não foi possível enviar a reserva.";
+    setMessage(msg,message,"error");
+    if(/acabou de ser reservada/i.test(message)){p.status="reserved";renderCatalog()}
+  }finally{button.disabled=false;button.innerHTML='Confirmar reserva <i data-lucide="send"></i>';iconRefresh()}
 }
-
+function reservationStatusSteps(status="Pendente"){
+  const labels=["Solicitação recebida","Em análise","Confirmada","Pronta para retirada","Concluída"];
+  const map={"Pendente":0,"Em análise":1,"Confirmada":2,"Pronta para retirada":3,"Vendido":4,"Concluída":4,"Cancelada":-1};
+  const current=map[status]??0;
+  if(status==="Cancelada")return `<div class="tracking-cancelled"><i data-lucide="circle-x"></i><strong>Reserva cancelada</strong><span>Esta reserva não está mais ativa.</span></div>`;
+  return `<div class="tracking-steps">${labels.map((label,i)=>`<div class="${i<=current?"done":""} ${i===current?"current":""}"><i data-lucide="${i<current?"circle-check":"circle"}"></i><span>${label}</span></div>`).join("")}</div>`;
+}
+function renderTrackingResult(reservation){
+  const box=$("#tracking-result");if(!box)return;
+  const protocol=reservationProtocol(reservation);
+  box.classList.remove("hidden");
+  box.innerHTML=`<div class="tracking-head"><div><span class="kicker">PROTOCOLO ${esc(protocol)}</span><h3>${esc(reservation.nomeProduto||reservation.codigoProduto||"Reserva")}</h3></div><span class="status ${reservationStatusClass(reservation.status)}">${esc(reservation.status||"Pendente")}</span></div>
+    ${reservationStatusSteps(reservation.status)}
+    <div class="tracking-meta"><div><span>Troca</span><strong>${esc(reservation.itemDoacao||reservation.trade||"Consulte a equipe")}</strong></div><div><span>Contato</span><strong>${esc(reservation.contato||"—")}</strong></div></div>
+    ${reservation.observacoesEquipe?`<div class="tracking-note"><i data-lucide="message-circle"></i><span>${esc(reservation.observacoesEquipe)}</span></div>`:""}
+    <p class="field-help">Se o status mudar, consulte novamente com o mesmo protocolo e WhatsApp.</p>`;
+  iconRefresh();
+}
+function prefillTracking(){
+  const last=state.lastReservation||loadLastReservation();if(!last)return;
+  if($("#tracking-protocol")&&!$("#tracking-protocol").value)$("#tracking-protocol").value=reservationProtocol(last);
+  if($("#tracking-contact")&&!$("#tracking-contact").value)$("#tracking-contact").value=last.contato||"";
+}
+async function trackReservation(event){
+  event.preventDefault();
+  const protocol=$("#tracking-protocol").value.trim().toUpperCase();
+  const contact=$("#tracking-contact").value.trim();
+  const msg=$("#tracking-message"),button=$("#tracking-submit"),box=$("#tracking-result");
+  box?.classList.add("hidden");button.disabled=true;setMessage(msg,"Consultando…");
+  try{
+    const found=await api(`/reservas/acompanhar?protocolo=${encodeURIComponent(protocol)}&contato=${encodeURIComponent(contact)}`);
+    saveLastReservation(found);renderTrackingResult(found);setMessage(msg,"","success");
+  }catch(error){
+    const local=loadLastReservation();
+    if(local&&reservationProtocol(local)===protocol&&normalizeContact(local.contato)===normalizeContact(contact)){
+      renderTrackingResult(local);
+      setMessage(msg,"Mostrando o último status salvo neste aparelho. A atualização online estará disponível assim que o servidor concluir a consulta.","");
+    }else{
+      setMessage(msg,"Não encontramos essa reserva com os dados informados. Confira o protocolo e o WhatsApp.","error");
+    }
+  }finally{button.disabled=false}
+}
 async function submitFeedback(event){
   event.preventDefault();
   const form=event.currentTarget;
@@ -430,6 +604,7 @@ function adminLogin(event){
   showScreen("management",{updateRoute:false});
   if(pending&&ROUTE_ADMIN_TABS[pending])setAdminTab(ROUTE_ADMIN_TABS[pending]);
   else setAdminTab("overview");
+  Promise.allSettled([loadReservations(),loadReviews()]).then(()=>renderAdminAll());
   toast("Área administrativa liberada")
 }
 function adminLogout(){
@@ -776,10 +951,10 @@ async function cycleProduct(code){
 function editProduct(code){const p=state.products.find(x=>x.code===code);if(!p?.id)return toast("Este item de prévia não pode ser editado.");openProductForm(p)}
 
 function reservationStatusClass(status){return status==="Vendido"?"exchanged":["Pendente","Em análise","Confirmada"].includes(status)?"reserved":"available"}
-function whatsappUrl(contact=""){
+function whatsappUrl(contact="",message=""){
   let digits=String(contact).replace(/\D/g,"");
   if((digits.length===10||digits.length===11)&&!digits.startsWith("55"))digits="55"+digits;
-  return digits.length>=10?`https://wa.me/${digits}`:"";
+  return digits.length>=10?`https://wa.me/${digits}${message?`?text=${encodeURIComponent(message)}`:""}`:"";
 }
 function filteredReservations(){
   const q=state.adminReservationSearch.trim().toLowerCase();
@@ -794,7 +969,7 @@ function renderReservations(){
   const items=filteredReservations();
   const count=$("#admin-reservation-count");if(count)count.textContent=`${items.length} de ${state.reservations.length} reserva(s)`;
   list.innerHTML=items.length?items.map(r=>{
-    const wa=whatsappUrl(r.contato);
+    const wa=whatsappUrl(r.contato,`Olá, ${r.nomeCompleto||""}! Sobre sua reserva ${reservationProtocol(r)} da peça ${r.nomeProduto||r.codigoProduto||""}: ${r.status||"Pendente"}.`);
     return `<article class="admin-card">
       <div><h4>${esc(r.nomeCompleto||"Cliente")} · ${esc(r.nomeProduto||r.codigoProduto||"Produto")} <span class="status ${reservationStatusClass(r.status)}">${esc(r.status||"Pendente")}</span></h4>
       <p>${esc(r.contato||"Sem contato")} · Doação: ${esc(r.itemDoacao||"—")} · Qtde. ${esc(r.quantidade||1)}</p>
@@ -804,6 +979,7 @@ function renderReservations(){
         <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Em análise">Em análise</button>
         <button class="mini-btn primary" type="button" data-reservation-status="${esc(r._id)}|Confirmada">Confirmar</button>
         <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Vendido">Concluir</button>
+        <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Cancelada">Cancelar</button>
         <button class="mini-btn danger" type="button" data-delete-reservation="${esc(r._id)}">Excluir</button>
       </div>
     </article>`;
@@ -906,8 +1082,10 @@ function clearAdminFilters(type){
 
 function bind(){
   document.addEventListener("click",event=>{
-    const screenLink=event.target.closest("[data-screen-link]");if(screenLink){showScreen(screenLink.dataset.screenLink);return}
+    const screenLink=event.target.closest("[data-screen-link]");if(screenLink){showScreen(screenLink.dataset.screenLink,{preserveScroll:screenLink.dataset.screenLink==="catalog"&&$(".screen.active")?.id==="details"});return}
+    const favorite=event.target.closest("[data-favorite-product]");if(favorite){event.stopPropagation();toggleFavorite(favorite.dataset.favoriteProduct);return}
     const open=event.target.closest("[data-open-product]");if(open){openProduct(open.dataset.openProduct);return}
+    const emptyClear=event.target.closest("#empty-clear-filters");if(emptyClear){clearCatalogFilters();return}
     const filter=event.target.closest("[data-category]");if(filter){state.category=filter.dataset.category;$$("[data-category]").forEach(b=>b.classList.toggle("active",b===filter));renderCatalog();return}
     const tab=event.target.closest("[data-admin-tab]");if(tab){setAdminTab(tab.dataset.adminTab);return}
     const jump=event.target.closest("[data-admin-jump]");if(jump){setAdminTab(jump.dataset.adminJump);return}
@@ -924,9 +1102,27 @@ function bind(){
   });
   $("#menu-toggle")?.addEventListener("click",toggleMenu);
   $("#catalog-search")?.addEventListener("input",e=>{state.search=e.target.value;renderCatalog()});
+  $("#catalog-status")?.addEventListener("change",e=>{state.catalogStatus=e.target.value;renderCatalog()});
+  $("#catalog-size")?.addEventListener("change",e=>{state.catalogSize=e.target.value;renderCatalog()});
+  $("#catalog-sort")?.addEventListener("change",e=>{state.catalogSort=e.target.value;renderCatalog()});
+  $("#catalog-favorites")?.addEventListener("click",()=>{state.favoritesOnly=!state.favoritesOnly;renderCatalog()});
+  $("#catalog-clear")?.addEventListener("click",clearCatalogFilters);
+  $("#favorite-button")?.addEventListener("click",()=>{if(state.selectedProduct)toggleFavorite(state.selectedProduct.code)});
+  $("#share-button")?.addEventListener("click",shareSelectedProduct);
   $("#reserve-button")?.addEventListener("click",startReservation);
   $("#reservation-back")?.addEventListener("click",()=>{if(state.selectedProduct)openProduct(state.selectedProduct.code);else showScreen("catalog")});
   $("#reservation-form")?.addEventListener("submit",submitReservation);
+  $("#alternate-donation-toggle")?.addEventListener("click",()=>{
+    const box=$("#alternate-donation"),button=$("#alternate-donation-toggle"),hidden=box?.classList.toggle("hidden");
+    button?.setAttribute("aria-expanded",String(!hidden));
+    if(!hidden)$("#donation-item")?.focus();
+  });
+  $("#contact")?.addEventListener("input",e=>{
+    const digits=e.target.value.replace(/\D/g,"").slice(0,11);
+    e.target.value=digits.length>10?`(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`:digits.length>6?`(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`:digits.length>2?`(${digits.slice(0,2)}) ${digits.slice(2)}`:digits;
+  });
+  $("#copy-protocol")?.addEventListener("click",async()=>{const value=$("#confirmation-protocol")?.textContent||"";try{await navigator.clipboard.writeText(value);toast("Protocolo copiado.")}catch{toast("Copie o protocolo manualmente.")}});
+  $("#tracking-form")?.addEventListener("submit",trackReservation);
   $("#feedback-form")?.addEventListener("submit",submitFeedback);
   $("#adm-form")?.addEventListener("submit",adminLogin);
   $("#admin-logout")?.addEventListener("click",adminLogout);
@@ -950,17 +1146,23 @@ function bind(){
   $("#admin-export-products")?.addEventListener("click",exportProducts);
   $("#admin-export-reservations")?.addEventListener("click",exportReservations);
   $("#admin-export-reviews")?.addEventListener("click",exportReviews);
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}});
+  document.addEventListener("keydown",e=>{
+    if((e.key==="Enter"||e.key===" ")&&e.target?.matches?.("[data-open-product][role=button]")){e.preventDefault();openProduct(e.target.dataset.openProduct);return}
+    if(e.key==="Escape"){closeMenu();if(state.adminUnlocked){closeProductForm();closeCategoryEditor()}}
+  });
   window.addEventListener("popstate",()=>routeToCurrentLocation());
 }
 
 async function init(){
   restoreRedirectPath();
   state.adminUnlocked=restoreAdminSession();
+  state.favorites=readFavorites();
+  state.lastReservation=loadLastReservation();
   bind();
   showScreen("home",{updateRoute:false});
   iconRefresh();
-  await Promise.allSettled([loadProducts(),loadReservations(),loadReviews()]);
+  await loadProducts().catch(()=>{});
+  if(state.adminUnlocked)await Promise.allSettled([loadReservations(),loadReviews()]);
   routeToCurrentLocation({replaceInvalid:true});
   iconRefresh();
 }
