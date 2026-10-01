@@ -8,6 +8,9 @@ const browser = await chromium.launch({headless:true,args:["--no-sandbox"]});
 fs.mkdirSync("audit-screenshots",{recursive:true});
 for (const [path,expected] of Object.entries(routes)) {
   const page = await browser.newPage({viewport:{width:1280,height:800}});
+  const consoleErrors=[]; const pageErrors=[];
+  page.on("console",msg=>{ if(msg.type()==="error") consoleErrors.push(msg.text()) });
+  page.on("pageerror",err=>pageErrors.push(String(err)));
   try {
     const response = await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:30000});
     await page.waitForTimeout(1200);
@@ -16,8 +19,18 @@ for (const [path,expected] of Object.entries(routes)) {
       css: !!document.querySelector('link[href="/style.css"]'),
       cssLoaded: [...document.styleSheets].some(s=>s.href?.endsWith("/style.css")),
       title: document.title,
-      width: document.documentElement.scrollWidth
+      width: document.documentElement.scrollWidth,
+      pathname: location.pathname,
+      readyState: document.readyState,
+      activeIds: [...document.querySelectorAll(".screen.active")].map(x=>x.id),
+      shellCount: document.querySelectorAll(".screen").length
     }));
+    const appJs = await page.evaluate(async()=>{ try{return await (await fetch("/app.js?audit="+Date.now(),{cache:"no-store"})).text()}catch(e){return "FETCH_ERROR:"+e} });
+    state.appHasProductsReady = appJs.includes("productsReady");
+    state.appHasImmediateRouteInit = appJs.includes("routeToCurrentLocation({replaceInvalid:false})");
+    state.appBytes = appJs.length;
+    state.consoleErrors = consoleErrors;
+    state.pageErrors = pageErrors;
     const ok = response.status()===200 && state.active===expected && state.cssLoaded;
     results.push({path,ok,http:response.status(),...state});
     if(!ok)failed.push(path);
