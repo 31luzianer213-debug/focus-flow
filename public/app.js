@@ -17,6 +17,7 @@ const state = {
   catalogScrollY: 0,
   lastReservation: null,
   adminUnlocked: false,
+  adminToken: "",
   usingFallback: false,
   apiStatus: {products:false,reservations:false,reviews:false},
   adminProductSearch: "",
@@ -145,14 +146,19 @@ function updateUrl(path,{replace=false}={}){
   if(currentRoute()===target)return;
   window.history[replace?"replaceState":"pushState"]({},"",routeUrl(target));
 }
-function persistAdminSession(unlocked){
+function persistAdminSession(unlocked,token=""){
   try{
     if(unlocked) sessionStorage.setItem("brecho:admin-session","1");
     else sessionStorage.removeItem("brecho:admin-session");
+    if(token)sessionStorage.setItem("brecho:admin-token",token);
+    else if(!unlocked)sessionStorage.removeItem("brecho:admin-token");
   }catch{}
 }
 function restoreAdminSession(){
   try{return sessionStorage.getItem("brecho:admin-session")==="1"}catch{return false}
+}
+function restoreAdminToken(){
+  try{return sessionStorage.getItem("brecho:admin-token")||""}catch{return ""}
 }
 function persistSelectedProduct(code=""){
   try{
@@ -271,7 +277,9 @@ async function api(path,options={},timeoutMs=20000){
     const response=await fetch(`${API_URL}${path}`,{...options,signal:controller.signal});
     if(!response.ok){
       let data={}; try{data=await response.json()}catch{}
-      throw new Error(data.erro||data.mensagem||`Erro ${response.status}`);
+      const error=new Error(data.erro||data.mensagem||`Erro ${response.status}`);
+      error.status=response.status;
+      throw error;
     }
     return response.status===204?null:response.json();
   }catch(error){
@@ -280,6 +288,11 @@ async function api(path,options={},timeoutMs=20000){
   }finally{
     clearTimeout(timer);
   }
+}
+async function adminApi(path,options={},timeoutMs=20000){
+  const headers={...(options.headers||{})};
+  if(state.adminToken)headers.Authorization=`Bearer ${state.adminToken}`;
+  return api(path,{...options,headers},timeoutMs);
 }
 
 async function loadProducts(){
@@ -310,7 +323,7 @@ async function loadProducts(){
 }
 async function loadReservations(){
   try{
-    state.reservations=await api("/reservas");
+    state.reservations=await adminApi("/reservas");
     state.apiStatus.reservations=true;
     applyReservationStatuses();
     renderCatalog();
@@ -326,7 +339,7 @@ async function loadReservations(){
 }
 async function loadReviews(){
   try{
-    state.reviews=await api("/avaliacoes");
+    state.reviews=await adminApi("/avaliacoes");
     state.apiStatus.reviews=true;
   }catch(error){
     console.warn(error);
@@ -593,22 +606,41 @@ async function submitFeedback(event){
   }
 }
 
-function adminLogin(event){
-  event.preventDefault();const msg=$("#adm-message");
-  if($("#adm-code").value.trim()!==ADM_CODE){setMessage(msg,"Código de acesso inválido.","error");return}
-  state.adminUnlocked=true;
-  persistAdminSession(true);
+async function adminLogin(event){
+  event.preventDefault();const msg=$("#adm-message"),button=$("#adm-form button[type=submit]");
+  const code=$("#adm-code").value.trim();
+  button.disabled=true;setMessage(msg,"Validando acesso…");
+  let authenticated=false,token="";
+  try{
+    const result=await api("/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})});
+    token=result?.token||"";
+    authenticated=Boolean(token);
+  }catch(error){
+    if(error?.status===404){
+      authenticated=code===ADM_CODE;
+    }else{
+      setMessage(msg,error?.message||"Não foi possível validar o acesso.","error");
+      button.disabled=false;
+      return;
+    }
+  }
+  if(!authenticated){setMessage(msg,"Código de acesso inválido.","error");button.disabled=false;return}
+  state.adminUnlocked=true;state.adminToken=token;
+  persistAdminSession(true,token);
   $("#adm-code").value="";setMessage(msg,"");
   const pending=state.pendingAdminRoute;
   state.pendingAdminRoute="";
   showScreen("management",{updateRoute:false});
   if(pending&&ROUTE_ADMIN_TABS[pending])setAdminTab(ROUTE_ADMIN_TABS[pending]);
   else setAdminTab("overview");
-  Promise.allSettled([loadReservations(),loadReviews()]).then(()=>renderAdminAll());
+  await Promise.allSettled([loadReservations(),loadReviews()]);
+  renderAdminAll();
+  button.disabled=false;
   toast("Área administrativa liberada")
 }
 function adminLogout(){
   state.adminUnlocked=false;
+  state.adminToken="";
   state.pendingAdminRoute="";
   persistAdminSession(false);
   showScreen("adm");
@@ -806,7 +838,7 @@ async function updateCategoryProducts(originalKey,newName){
   for(const product of targets){
     const form=new FormData();
     form.set("categoria",newName);
-    await api(`/produtos/${product.id}`,{method:"PUT",body:form});
+    await adminApi(`/produtos/${product.id}`,{method:"PUT",body:form});
   }
   return targets.length;
 }
@@ -938,14 +970,14 @@ async function deleteProduct(code){
     return;
   }
   if(!confirm(`Excluir "${p.name}"? Esta ação não pode ser desfeita.`)) return;
-  try{await api(`/produtos/${p.id}`,{method:"DELETE"});await loadProducts();toast("Produto excluído")}catch(error){toast(error.message)}
+  try{await adminApi(`/produtos/${p.id}`,{method:"DELETE"});await loadProducts();toast("Produto excluído")}catch(error){toast(error.message)}
 }
 async function cycleProduct(code){
   const p=state.products.find(x=>x.code===code);if(!p?.id) return toast("Este item de prévia não pode ser alterado.");
   const next={available:"reserved",reserved:"exchanged",exchanged:"available"}[p.status]||"available";
   try{
     const form=new FormData();form.set("status",next);
-    await api(`/produtos/${p.id}`,{method:"PUT",body:form});await loadProducts();toast(`Status: ${statusLabel(next)}`)
+    await adminApi(`/produtos/${p.id}`,{method:"PUT",body:form});await loadProducts();toast(`Status: ${statusLabel(next)}`)
   }catch(error){toast(error.message)}
 }
 function editProduct(code){const p=state.products.find(x=>x.code===code);if(!p?.id)return toast("Este item de prévia não pode ser editado.");openProductForm(p)}
@@ -978,6 +1010,7 @@ function renderReservations(){
         ${wa?`<a class="mini-btn whatsapp" href="${esc(wa)}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:""}
         <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Em análise">Em análise</button>
         <button class="mini-btn primary" type="button" data-reservation-status="${esc(r._id)}|Confirmada">Confirmar</button>
+        <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Pronta para retirada">Pronta p/ retirada</button>
         <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Vendido">Concluir</button>
         <button class="mini-btn" type="button" data-reservation-status="${esc(r._id)}|Cancelada">Cancelar</button>
         <button class="mini-btn danger" type="button" data-delete-reservation="${esc(r._id)}">Excluir</button>
@@ -986,9 +1019,9 @@ function renderReservations(){
   }).join(""):`<div class="state-box">Nenhuma reserva corresponde aos filtros.</div>`;
 }
 async function updateReservation(id,status){
-  const notes=status==="Em análise"?"Reserva recebida e aguardando análise da equipe.":status==="Confirmada"?"Reserva aprovada pela equipe.":status==="Vendido"?"Troca concluída.":"";
+  const notes=status==="Em análise"?"Reserva recebida e aguardando análise da equipe.":status==="Confirmada"?"Reserva aprovada pela equipe.":status==="Pronta para retirada"?"Sua peça está separada e pronta para retirada.":status==="Vendido"?"Troca concluída.":status==="Cancelada"?"Reserva cancelada pela equipe.":"";
   try{
-    const updated=await api(`/reservas/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,observacoesEquipe:notes})});
+    const updated=await adminApi(`/reservas/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,observacoesEquipe:notes})});
     const i=state.reservations.findIndex(r=>r._id===id);if(i>=0)state.reservations[i]=updated;
     applyReservationStatuses();renderReservations();renderCatalog();renderAdminOverview();toast("Reserva atualizada")
   }catch(error){toast(error.message)}
@@ -996,7 +1029,7 @@ async function updateReservation(id,status){
 async function deleteReservation(id){
   if(!confirm("Excluir esta reserva? Esta ação não pode ser desfeita.")) return;
   try{
-    await api(`/reservas/${id}`,{method:"DELETE"});
+    await adminApi(`/reservas/${id}`,{method:"DELETE"});
     state.reservations=state.reservations.filter(r=>r._id!==id);
     await loadProducts();
     renderReservations();renderAdminOverview();toast("Reserva excluída")
@@ -1156,6 +1189,7 @@ function bind(){
 async function init(){
   restoreRedirectPath();
   state.adminUnlocked=restoreAdminSession();
+  state.adminToken=restoreAdminToken();
   state.favorites=readFavorites();
   state.lastReservation=loadLastReservation();
   bind();
