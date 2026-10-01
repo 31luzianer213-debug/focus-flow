@@ -46,7 +46,8 @@ check("catalog advanced filters exist", ["catalog-status","catalog-size","catalo
 check("public menu does not expose ADM", !html.match(/<div class="nav-links"[\s\S]*?<\/div>/)?.[0]?.includes('data-screen-link="adm"'));
 check("skip link exists", html.includes('class="skip-link"'));
 check("mobile sticky reserve exists", css.includes(".sticky-reserve") && css.includes("position:sticky"));
-check("public init does not fetch admin data", !js.includes("Promise.allSettled([loadProducts(),loadReservations(),loadReviews()])"));
+const initBlock = js.slice(js.indexOf("async function init()"), js.indexOf("if (document.readyState"));
+check("public init does not fetch admin data", !initBlock.includes("loadReservations()") || initBlock.includes("if(state.adminUnlocked)"));
 check("server auth progressive client exists", js.includes("/auth/login") && js.includes("adminApi"));
 check("no fake catalog fallback message", !js.includes("Mostrando uma prévia do catálogo"));
 
