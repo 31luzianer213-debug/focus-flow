@@ -353,7 +353,7 @@ async function loadReviews(){
 function applyReservationStatuses(){
   state.reservations.forEach(r=>{
     const p=state.products.find(x=>x.code===r.codigoProduto); if(!p) return;
-    if(["Pendente","Em análise","Confirmada"].includes(r.status)) p.status="reserved";
+    if(["Pendente","Em análise","Confirmada","Pronta para retirada"].includes(r.status)) p.status="reserved";
     if(r.status==="Vendido") p.status="exchanged";
   });
 }
@@ -957,7 +957,7 @@ async function saveProduct(event){
   if(image) form.set("imagem",image);
   button.disabled=true;button.textContent="Salvando…";
   try{
-    await api(id?`/produtos/${id}`:"/produtos",{method:id?"PUT":"POST",body:form});
+    await adminApi(id?`/produtos/${id}`:"/produtos",{method:id?"PUT":"POST",body:form});
     await loadProducts();closeProductForm();setMessage(msg,id?"Produto atualizado com sucesso.":"Produto criado com sucesso.","success")
   }catch(error){setMessage(msg,error.message||"Não foi possível salvar o produto.","error")}
   finally{button.disabled=false;button.textContent="Salvar produto"}
