@@ -68,7 +68,7 @@ try {
       trade:!!document.querySelector("#detail-trade")
     }));
     const ok=detailOk && Object.values(detailControls).every(Boolean);
-    results.push({path:"product-detail",ok,url:location.pathname,...detailControls});
+    results.push({path:"product-detail",ok,url:uxPage.url(),...detailControls});
     if(!ok)failed.push("product-detail");
   } else {
     results.push({path:"product-detail",ok:true,skipped:"catalog currently has no product card"});
