@@ -22,6 +22,7 @@ const state = {
   adminToken: "",
   usingFallback: false,
   apiStatus: {products:false,reservations:false,reviews:false},
+  productsReady: false,
   adminProductSearch: "",
   adminProductCategory: "all",
   adminProductStatus: "all",
@@ -227,6 +228,10 @@ function routeToCurrentLocation({replaceInvalid=false}={}){
   }
 
   if(path.startsWith("/produto/")){
+    if(!state.productsReady){
+      showScreen("catalog",{updateRoute:false});
+      return;
+    }
     const code=decodeURIComponent(path.slice("/produto/".length));
     if(code&&state.products.some(p=>p.code===code)){
       openProduct(code,{updateRoute:false});
@@ -238,6 +243,10 @@ function routeToCurrentLocation({replaceInvalid=false}={}){
   }
 
   if(path==="/reserva"){
+    if(!state.productsReady){
+      showScreen("catalog",{updateRoute:false});
+      return;
+    }
     const savedCode=state.selectedProduct?.code||(()=>{try{return sessionStorage.getItem("brecho:selected-product")||""}catch{return ""}})();
     const product=state.products.find(p=>p.code===savedCode);
     if(product&&product.status==="available"){
@@ -338,6 +347,7 @@ async function loadProducts(){
     state.apiStatus.products=false;
     if(box){box.textContent="Não foi possível carregar o catálogo agora. Atualize a página ou tente novamente em instantes.";box.classList.remove("hidden");}
   }
+  state.productsReady=true;
   applyReservationStatuses();
   renderCatalogFilters();
   renderCatalogSizes();
@@ -1238,7 +1248,7 @@ async function init(){
   state.favorites=readFavorites();
   state.lastReservation=loadLastReservation();
   bind();
-  showScreen("home",{updateRoute:false});
+  routeToCurrentLocation({replaceInvalid:false});
   iconRefresh();
   await Promise.allSettled([loadProducts(),loadPublicConfig()]);
   if(state.adminUnlocked)await Promise.allSettled([loadReservations(),loadReviews()]);
