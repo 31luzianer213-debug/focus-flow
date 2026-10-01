@@ -11,6 +11,7 @@ const state = {
   search: "",
   catalogStatus: "available",
   catalogSize: "all",
+  catalogCondition: "all",
   catalogSort: "available",
   favoritesOnly: false,
   favorites: new Set(),
@@ -340,6 +341,7 @@ async function loadProducts(){
   applyReservationStatuses();
   renderCatalogFilters();
   renderCatalogSizes();
+  renderCatalogConditions();
   renderCatalog();
   renderImpactStats();
   renderAdminProducts();
@@ -400,15 +402,27 @@ function renderCatalogSizes(){
   select.value=sizes.includes(current)?current:"all";
   if(select.value!==current)state.catalogSize="all";
 }
+function renderCatalogConditions(){
+  const select=$("#catalog-condition");if(!select)return;
+  const current=state.catalogCondition;
+  const values=[...new Set(state.products.map(p=>String(p.condition||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  select.innerHTML='<option value="all">Todos os estados</option>'+values.map(value=>`<option value="${esc(value)}">${esc(value)}</option>`).join("");
+  select.value=values.includes(current)?current:"all";
+  if(select.value!==current)state.catalogCondition="all";
+}
+function normalizeSearch(value=""){
+  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+}
 function filteredProducts(){
-  const term=state.search.toLowerCase().trim();
+  const term=normalizeSearch(state.search);
   let list=state.products.filter(p=>{
     const cat=state.category==="all"||p.category===state.category;
     const status=state.catalogStatus==="all"||p.status===state.catalogStatus;
     const size=state.catalogSize==="all"||String(p.size)===state.catalogSize;
+    const condition=state.catalogCondition==="all"||String(p.condition)===state.catalogCondition;
     const favorite=!state.favoritesOnly||state.favorites.has(p.code);
-    const text=!term||[p.name,p.code,p.category,p.description,p.size,p.condition,p.trade].join(" ").toLowerCase().includes(term);
-    return cat&&status&&size&&favorite&&text;
+    const text=!term||normalizeSearch([p.name,p.code,p.category,p.description,p.size,p.condition,p.trade].join(" ")).includes(term);
+    return cat&&status&&size&&condition&&favorite&&text;
   });
   if(state.catalogSort==="name")list.sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
   else if(state.catalogSort==="available")list.sort((a,b)=>(a.status==="available"?0:1)-(b.status==="available"?0:1));
@@ -444,10 +458,11 @@ function renderCatalog(){
   iconRefresh();
 }
 function clearCatalogFilters(){
-  state.search="";state.category="all";state.catalogStatus="available";state.catalogSize="all";state.catalogSort="available";state.favoritesOnly=false;
+  state.search="";state.category="all";state.catalogStatus="available";state.catalogSize="all";state.catalogCondition="all";state.catalogSort="available";state.favoritesOnly=false;
   if($("#catalog-search"))$("#catalog-search").value="";
   if($("#catalog-status"))$("#catalog-status").value="available";
   if($("#catalog-size"))$("#catalog-size").value="all";
+  if($("#catalog-condition"))$("#catalog-condition").value="all";
   if($("#catalog-sort"))$("#catalog-sort").value="available";
   renderCatalogFilters();renderCatalog();
 }
@@ -1166,6 +1181,7 @@ function bind(){
   $("#catalog-search")?.addEventListener("input",e=>{state.search=e.target.value;renderCatalog()});
   $("#catalog-status")?.addEventListener("change",e=>{state.catalogStatus=e.target.value;renderCatalog()});
   $("#catalog-size")?.addEventListener("change",e=>{state.catalogSize=e.target.value;renderCatalog()});
+  $("#catalog-condition")?.addEventListener("change",e=>{state.catalogCondition=e.target.value;renderCatalog()});
   $("#catalog-sort")?.addEventListener("change",e=>{state.catalogSort=e.target.value;renderCatalog()});
   $("#catalog-favorites")?.addEventListener("click",()=>{state.favoritesOnly=!state.favoritesOnly;renderCatalog()});
   $("#catalog-clear")?.addEventListener("click",clearCatalogFilters);
